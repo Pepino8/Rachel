@@ -32,7 +32,7 @@ function PostListings(){
                 onClick={() => setIsPressed(!isPressed)}
                 className={`h-fit w-full border-2 rounded-sm mt-3 duration-200
                     ${
-                            isPressed ? 'border-red-500 hover:bg-red-500' : 'border-green-500 hover:bg-green-500'
+                        isPressed ? 'border-red-500 hover:bg-red-500' : 'border-green-500 hover:bg-green-500'
                     }`}
             >
                 <p className="text-xl">{isPressed ? 'Stop Posting' : 'Auto Post Listings'}</p>

@@ -2,6 +2,7 @@ import Product from '../components/Product';
 import SearchBar from './SearchBar';
 
 function ProductList(){
+    
     return(
         <div className="flex flex-col flex-1 rounded-md h-fit w-100 bg-gray-600 text-gray-300 p-4">
             <h2 className="font-bold text-4xl text-center mb-4">Productos</h2>

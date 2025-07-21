@@ -1,10 +1,7 @@
 import CreateImport from '../components/CreateImport';
 import PostListings from '../components/PostListings';
-import Product from '../components/Product';
 import ProductList from '../components/ProductList';
 import PurgeListings from '../components/PurgeListings';
-import SearchBar from '../components/SearchBar';
-
 
 function Content() {
     return(
@@ -22,7 +19,6 @@ function Content() {
                     <CreateImport/>
                     <ProductList/>
                 </div>
-                
             </div>
         </>
     );
