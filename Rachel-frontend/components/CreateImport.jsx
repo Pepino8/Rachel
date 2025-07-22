@@ -1,6 +1,4 @@
 import { useState } from 'react'
-import CreateProduct from './CreateProduct';
-
 
 function CreateImport() {
     const [create, setCreate] = new useState(false)
@@ -19,7 +17,18 @@ function CreateImport() {
 
             {create && (
                 <>
-                    <CreateProduct/>
+                    {/*Popup insano para crear listings*/}
+                    <div className="fixed inset-0 flex items-center justify-center z-50">
+                        <div className="bg-white text-black p-6 rounded-lg shadow-lg w-80 text-center">
+                            <p>Popup</p>
+                            <button
+                                onClick={() => setCreate(!create)}
+                                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                            >
+                            Cerrar?
+                            </button>
+                        </div>
+                    </div>
                 </>
             )}
         </div>
