@@ -95,15 +95,15 @@ function PurgeListings() {
                     onClick={handlePurgeExpired}
                     disabled={activePurging}
                     className={`w-full py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 border disabled:opacity-50 disabled:cursor-not-allowed
-                        ${isPurgingExpired 
-                            ? 'bg-red-950/30 text-red-400 border-red-900/50' 
+                        ${isPurgingExpired
+                            ? 'bg-red-950/30 text-red-400 border-red-900/50'
                             : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border-zinc-700/50 hover:border-zinc-600/50'
                         }`}
                 >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    {isPurgingExpired ? 'Purging Expired...' : 'Remove Expired'}
+                    {isPurgingExpired ? 'Purging Expired and Drafts...' : 'Remove Expired / Drafts'}
                 </button>
 
                 {/* Remove All Button */}
@@ -111,8 +111,8 @@ function PurgeListings() {
                     onClick={handlePurgeAll}
                     disabled={activePurging}
                     className={`w-full py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 border disabled:opacity-50 disabled:cursor-not-allowed
-                        ${isPurgingAll 
-                            ? 'bg-red-950/30 text-red-400 border-red-900/50' 
+                        ${isPurgingAll
+                            ? 'bg-red-950/30 text-red-400 border-red-900/50'
                             : 'bg-red-950/10 hover:bg-red-950/30 text-red-400 border-red-950/30 hover:border-red-500/30'
                         }`}
                 >

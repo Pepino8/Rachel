@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 
 function PostListings() {
@@ -6,15 +6,21 @@ function PostListings() {
     const [postedCount, setPostedCount] = useState(0);
     const [purgedCount, setPurgedCount] = useState(0);
 
+    const postedCountRef = useRef(postedCount);
+    useEffect(() => {
+        postedCountRef.current = postedCount;
+    }, [postedCount]);
+
     useEffect(() => {
         let intervalId;
 
         const performAutoPost = async () => {
             try {
                 console.log("Auto-posting listing to Gameflip API...");
+                const currentCount = postedCountRef.current;
                 // Create a mock listing to simulate automatic posting
                 const response = await axios.post("http://localhost:3000/api/listings", {
-                    name: `Auto-Post Item #${postedCount + 1}`,
+                    name: `Auto-Post Item #${currentCount + 1}`,
                     description: "Automatically posted by Rachel dashboard agent.",
                     price: "1.50",
                     category: "ingame-item"
@@ -38,7 +44,7 @@ function PostListings() {
         return () => {
             if (intervalId) clearInterval(intervalId);
         };
-    }, [isPressed, postedCount]);
+    }, [isPressed]);
 
     return (
         <div className="bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md rounded-2xl p-6 shadow-xl shadow-black/20 w-full transition-all duration-300">

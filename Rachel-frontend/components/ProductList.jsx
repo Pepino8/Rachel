@@ -3,46 +3,48 @@ import axios from 'axios';
 import Product from '../components/Product';
 import SearchBar from './SearchBar';
 
-function ProductList() {
+function ProductList({ refreshTrigger }) {
     const [products, setProducts] = useState([]);
     const [search, setSearch] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     // Default mock products to show when Gameflip list is empty or fails
     const fallbackProducts = [
-        { id: 'mock1', name: 'Retro Gaming Console', category: 'video-game-console', price: '$149.99', isReal: false },
-        { id: 'mock2', name: 'Limited DVD Box Set', category: 'video-dvd', price: '$45.00', isReal: false },
-        { id: 'mock3', name: 'Premium Gift Card (100 USD)', category: 'giftcard', price: '$100.00', isReal: false }
+        { id: 'mock1', name: 'Retro Gaming Console', category: 'video-game-console', price: '$149.99', rawPrice: 149.99, isReal: false, autoPost: true, description: 'Seeded retro gaming system' },
+        { id: 'mock2', name: 'Limited DVD Box Set', category: 'video-dvd', price: '$45.00', rawPrice: 45.00, isReal: false, autoPost: false, description: 'Collectors box set' },
+        { id: 'mock3', name: 'Premium Gift Card (100 USD)', category: 'giftcard', price: '$100.00', rawPrice: 100.00, isReal: false, autoPost: true, description: '100 dollar giftcard' }
     ];
 
-    const fetchListings = async () => {
+    const fetchProducts = async () => {
         setIsLoading(true);
-        console.log("Fetching active draft/ready listings from Gameflip API...");
+        console.log("Fetching inventory products from local DB...");
         try {
-            const response = await axios.get('http://localhost:3000/api/listings');
-            console.log("listings fetched successfully:", response.data);
+            const response = await axios.get('http://localhost:3000/api/db/products');
+            console.log("products fetched successfully:", response.data);
             
             if (response.data && Array.isArray(response.data)) {
                 const mapped = response.data.map(item => ({
-                    id: item.id || item.listing_id,
-                    name: item.name || 'Unnamed listing',
+                    id: item.id,
+                    name: item.name || 'Unnamed product',
+                    description: item.description || '',
                     category: item.category || 'unknown',
-                    price: `$${((item.price || 0) / 100).toFixed(2)}`,
+                    price: `$${parseFloat(item.price || 0).toFixed(2)}`,
+                    rawPrice: item.price,
+                    autoPost: item.auto_post === 1 || item.auto_post === true,
                     isReal: true
                 }));
                 setProducts(mapped);
             }
         } catch (error) {
-            console.error("Failed to fetch listings from backend:", error.message);
-            // On error we just keep the empty list so it falls back to mock items
+            console.error("Failed to fetch products from local DB:", error.message);
         } finally {
             setIsLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchListings();
-    }, []);
+        fetchProducts();
+    }, [refreshTrigger]);
 
     // Handle single item deletion in local state
     const handleDeleteProduct = (deletedId) => {
@@ -84,10 +86,14 @@ function ProductList() {
                             key={p.id}
                             id={p.id}
                             product={p.name}
+                            description={p.description}
                             category={p.category}
                             price={p.price}
+                            rawPrice={p.rawPrice}
+                            autoPost={p.autoPost}
                             isReal={p.isReal}
                             onDelete={handleDeleteProduct}
+                            onPost={fetchProducts}
                         />
                     ))
                 ) : (
@@ -99,7 +105,7 @@ function ProductList() {
             
             {/* Refresh Button */}
             <button 
-                onClick={fetchListings}
+                onClick={fetchProducts}
                 disabled={isLoading}
                 className="w-full mt-4 py-2 bg-zinc-950/40 hover:bg-zinc-950 border border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5"
             >

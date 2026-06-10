@@ -1,9 +1,13 @@
+import { useState } from 'react';
 import CreateImport from '../components/CreateImport';
 import PostListings from '../components/PostListings';
 import ProductList from '../components/ProductList';
 import PurgeListings from '../components/PurgeListings';
 
 function Content() {
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
+    const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
+
     return(
         <>
             {/*Este es el jesucristo de todo el content, si este div se borra todo vale verga*/}
@@ -16,8 +20,8 @@ function Content() {
                 
                 {/*Columna derecha*/}
                 <div className="w-full lg:w-1/2 max-w-lg flex flex-col gap-6">
-                    <CreateImport/>
-                    <ProductList/>
+                    <CreateImport onProductCreated={triggerRefresh}/>
+                    <ProductList refreshTrigger={refreshTrigger}/>
                 </div>
             </div>
         </>
