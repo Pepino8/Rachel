@@ -16,20 +16,39 @@ function PostListings() {
 
         const performAutoPost = async () => {
             try {
-                console.log("Auto-posting listing to Gameflip API...");
-                const currentCount = postedCountRef.current;
-                // Create a mock listing to simulate automatic posting
-                const response = await axios.post("http://localhost:3000/api/listings", {
-                    name: `Auto-Post Item #${currentCount + 1}`,
-                    description: "Automatically posted by Rachel dashboard agent.",
-                    price: "1.50",
-                    category: "ingame-item"
-                });
+                console.log("Auto-posting inventory listings to Gameflip...");
+                // Fetch products from local database
+                const dbRes = await axios.get("http://localhost:3000/api/db/products");
+                const allProducts = dbRes.data || [];
                 
-                console.log("Auto-post success:", response.data);
-                setPostedCount(prev => prev + 1);
+                // Filter only products that have auto_post enabled
+                const autoProducts = allProducts.filter(p => p.auto_post === 1 || p.auto_post === true);
+                
+                if (autoProducts.length === 0) {
+                    console.log("No products with auto-post enabled found in inventory.");
+                    return;
+                }
+
+                console.log(`Found ${autoProducts.length} auto-post enabled products in inventory.`);
+                
+                const currentCount = postedCountRef.current;
+                const prod = autoProducts[currentCount % autoProducts.length];
+                
+                console.log(`Auto-posting selected product: ${prod.name} (Index: ${currentCount % autoProducts.length})`);
+                try {
+                    await axios.post("http://localhost:3000/api/listings", {
+                        name: prod.name,
+                        description: prod.description || "Automatically posted by Rachel dashboard agent.",
+                        price: prod.price,
+                        category: prod.category || "ingame-item",
+                        product_id: prod.id
+                    });
+                    setPostedCount(prev => prev + 1);
+                } catch (err) {
+                    console.error(`Failed to auto-post product ${prod.name}:`, err.response?.data || err.message);
+                }
             } catch (error) {
-                console.error("Auto-post failed:", error.response?.data || error.message);
+                console.error("Auto-post error:", error.response?.data || error.message);
             }
         };
 
@@ -90,7 +109,15 @@ function PostListings() {
                 
             {/* Toggle Button */}
             <button
-                onClick={() => setIsPressed(!isPressed)}
+                onClick={() => {
+                    const nextState = !isPressed;
+                    if (nextState) {
+                        postedCountRef.current = 0;
+                        setPostedCount(0);
+                        setPurgedCount(0);
+                    }
+                    setIsPressed(nextState);
+                }}
                 className={`w-full mt-6 py-2.5 px-4 rounded-xl font-semibold text-sm transition-all duration-200 cursor-pointer flex items-center justify-center gap-2
                     ${isPressed 
                         ? 'bg-red-950/30 text-red-400 border border-red-900/50 hover:bg-red-900/20 hover:border-red-500/50 hover:text-red-300' 

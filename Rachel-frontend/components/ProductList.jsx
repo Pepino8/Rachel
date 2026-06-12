@@ -8,13 +8,6 @@ function ProductList({ refreshTrigger }) {
     const [search, setSearch] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    // Default mock products to show when Gameflip list is empty or fails
-    const fallbackProducts = [
-        { id: 'mock1', name: 'Retro Gaming Console', category: 'video-game-console', price: '$149.99', rawPrice: 149.99, isReal: false, autoPost: true, description: 'Seeded retro gaming system' },
-        { id: 'mock2', name: 'Limited DVD Box Set', category: 'video-dvd', price: '$45.00', rawPrice: 45.00, isReal: false, autoPost: false, description: 'Collectors box set' },
-        { id: 'mock3', name: 'Premium Gift Card (100 USD)', category: 'giftcard', price: '$100.00', rawPrice: 100.00, isReal: false, autoPost: true, description: '100 dollar giftcard' }
-    ];
-
     const fetchProducts = async () => {
         setIsLoading(true);
         console.log("Fetching inventory products from local DB...");
@@ -31,6 +24,7 @@ function ProductList({ refreshTrigger }) {
                     price: `$${parseFloat(item.price || 0).toFixed(2)}`,
                     rawPrice: item.price,
                     autoPost: item.auto_post === 1 || item.auto_post === true,
+                    imageUrl: item.image_path ? `http://localhost:3000/api/db/products/${item.id}/image` : null,
                     isReal: true
                 }));
                 setProducts(mapped);
@@ -52,8 +46,7 @@ function ProductList({ refreshTrigger }) {
     };
 
     // Filter logic
-    const activeProducts = products.length > 0 ? products : fallbackProducts;
-    const filteredProducts = activeProducts.filter(p => 
+    const filteredProducts = products.filter(p => 
         p.name.toLowerCase().includes(search.toLowerCase())
     );
 
@@ -70,7 +63,7 @@ function ProductList({ refreshTrigger }) {
                         <span className="text-[10px] text-zinc-500 animate-pulse">Loading...</span>
                     )}
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/15">
-                        {activeProducts.length} {products.length > 0 ? 'Live' : 'Demo'}
+                        {products.length} {products.length > 0 ? 'Live' : 'Empty'}
                     </span>
                 </div>
             </div>
@@ -80,7 +73,11 @@ function ProductList({ refreshTrigger }) {
 
             {/* Products List Container */}
             <div className="flex flex-col gap-3.5 mt-4">
-                {filteredProducts.length > 0 ? (
+                {products.length === 0 ? (
+                    <div className="text-center py-8 text-sm text-zinc-500">
+                        No products in inventory. Create a product above!
+                    </div>
+                ) : filteredProducts.length > 0 ? (
                     filteredProducts.map(p => (
                         <Product 
                             key={p.id}
@@ -91,6 +88,7 @@ function ProductList({ refreshTrigger }) {
                             price={p.price}
                             rawPrice={p.rawPrice}
                             autoPost={p.autoPost}
+                            imageUrl={p.imageUrl}
                             isReal={p.isReal}
                             onDelete={handleDeleteProduct}
                             onPost={fetchProducts}

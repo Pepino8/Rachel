@@ -1,14 +1,34 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-function ImageUploader() {
-    const [image, setImage] = useState(null);
+function ImageUploader({ onImageSelect, initialImageUrl, inputId = "fileInput" }) {
+    const [image, setImage] = useState(initialImageUrl || null);
+    const [selectedFile, setSelectedFile] = useState(null);
+
+    useEffect(() => {
+        setImage(initialImageUrl || null);
+        setSelectedFile(null);
+    }, [initialImageUrl]);
+
+    useEffect(() => {
+        return () => {
+            if (image && image.startsWith('blob:')) {
+                URL.revokeObjectURL(image);
+            }
+        };
+    }, [image]);
 
     const handleImageChange = (e) => {
         const file = e.target.files[0];
-        if (file) {
-            const imageUrl = URL.createObjectURL(file);
-            setImage(imageUrl);
+        if (!file) return;
+
+        if (image && image.startsWith('blob:')) {
+            URL.revokeObjectURL(image);
         }
+
+        const imageUrl = URL.createObjectURL(file);
+        setImage(imageUrl);
+        setSelectedFile(file);
+        onImageSelect?.(file);
     };
 
     return (
@@ -24,18 +44,20 @@ function ImageUploader() {
                             />
                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                 <label
-                                    htmlFor="fileInput"
+                                    htmlFor={inputId}
                                     className="p-1.5 rounded-lg bg-zinc-900 text-zinc-200 hover:text-white cursor-pointer border border-zinc-700/80 text-xs"
                                 >
                                     Change
                                 </label>
                             </div>
                         </div>
-                        <span className="text-xs text-zinc-500">Image loaded successfully</span>
+                        <span className="text-xs text-zinc-500">
+                            {selectedFile?.name || (initialImageUrl ? 'Current image' : 'Image loaded successfully')}
+                        </span>
                     </div>
                 ) : (
                     <label
-                        htmlFor="fileInput"
+                        htmlFor={inputId}
                         className="w-full flex flex-col items-center justify-center gap-2 cursor-pointer py-4"
                     >
                         <svg className="w-8 h-8 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -47,7 +69,7 @@ function ImageUploader() {
                 )}
 
                 <input
-                    id="fileInput"
+                    id={inputId}
                     type="file"
                     accept="image/*"
                     className="hidden"

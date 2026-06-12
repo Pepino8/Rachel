@@ -11,10 +11,33 @@ function CreateImport({ onProductCreated }) {
     const [price, setPrice] = useState('');
     const [autopost, setAutopost] = useState('yes');
     const [category, setCategory] = useState('ingame-item');
+    const [imageFile, setImageFile] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+
+    const fileToBase64 = (file) => new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+
+    const resetForm = () => {
+        setNombre('');
+        setDesc('');
+        setPrice('');
+        setAutopost('yes');
+        setCategory('ingame-item');
+        setImageFile(null);
+    };
 
     const handleCreate = async (e) => {
         e.preventDefault();
+
+        if (!imageFile) {
+            alert('Please select a product image');
+            return;
+        }
+
         setIsLoading(true);
         console.log('Sending product creation request with payload:', { nombre, desc, price, category, autopost });
 
@@ -24,6 +47,8 @@ function CreateImport({ onProductCreated }) {
                 ? window.crypto.randomUUID() 
                 : 'prod_' + Math.random().toString(36).substring(2, 15);
 
+            const image = await fileToBase64(imageFile);
+
             // 1. Save product to local DB
             await axios.post('http://localhost:3000/api/db/products', {
                 id: productId,
@@ -31,32 +56,16 @@ function CreateImport({ onProductCreated }) {
                 description: desc,
                 price: parseFloat(price),
                 category: category,
-                auto_post: autopost === 'yes'
+                auto_post: autopost === 'yes',
+                image
             });
 
             console.log('Successfully saved product to SQLite DB:', productId);
 
-            // 2. If autopost is yes, also create the listing on Gameflip
-            if (autopost === 'yes') {
-                const response = await axios.post('http://localhost:3000/api/listings', {
-                    name: nombre,
-                    description: desc,
-                    price: price,
-                    category: category,
-                    product_id: productId
-                });
-                console.log('Gameflip listing created successfully:', response.data);
-                alert(`Product created and posted to Gameflip! ID: ${response.data.id || response.data.listing_id || 'unknown'}`);
-            } else {
-                alert(`Product created successfully in local database!`);
-            }
+            alert(`Product created successfully! `);
 
             setCreate(false);
-
-            // Clear form
-            setNombre('');
-            setDesc('');
-            setPrice('');
+            resetForm();
 
             // Trigger parent refresh
             if (onProductCreated) {
@@ -64,7 +73,7 @@ function CreateImport({ onProductCreated }) {
             }
         } catch (error) {
             console.error('Error creating product listing:', error.response?.data || error.message);
-            alert(`Error: ${error.response?.data?.error?.message || error.message}`);
+            alert(`Error: ${error.response?.data?.error?.message || error.response?.data?.error || error.message}`);
         } finally {
             setIsLoading(false);
         }
@@ -142,7 +151,7 @@ function CreateImport({ onProductCreated }) {
                                 <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
                                     Product Image
                                 </label>
-                                <ImageUploader />
+                                <ImageUploader key={create ? 'create-open' : 'create-closed'} onImageSelect={setImageFile} />
                             </div>
 
                             {/* Description */}

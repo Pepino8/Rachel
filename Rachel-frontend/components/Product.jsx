@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import Switch from '@mui/material/Switch';
+import ProductEditModal from './ProductEditModal';
 
-function Product({ id, product, description, category, price, rawPrice, autoPost, isReal, onDelete, onPost }) {
+function Product({ id, product, description, category, price, rawPrice, autoPost, imageUrl, isReal, onDelete, onPost }) {
     const label = { inputProps: { 'aria-label': 'Switch demo' } };
     const [isDeleting, setIsDeleting] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
     const [autoPostState, setAutoPostState] = useState(autoPost);
     const [isToggling, setIsToggling] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
 
     useEffect(() => {
         setAutoPostState(autoPost);
@@ -111,23 +113,33 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
     };
 
     return (
-        <div className="w-full bg-zinc-950/60 border border-zinc-800/80 hover:border-zinc-700/50 hover:bg-zinc-900/40 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300">
-            {/* Left side: Icon + Product Details */}
-            <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center flex-shrink-0 text-zinc-500">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                </div>
-                <div className="flex flex-col gap-0.5">
-                    <h4 className="text-sm font-semibold text-zinc-100">{product}</h4>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs text-emerald-400 font-medium">{price}</span>
-                        <span className="text-zinc-700">•</span>
-                        {getCategoryBadge(category)}
+        <>
+            <div className="w-full bg-zinc-950/60 border border-zinc-800/80 hover:border-zinc-700/50 hover:bg-zinc-900/40 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300">
+                {/* Left side: Icon + Product Details */}
+                <button
+                    type="button"
+                    onClick={() => isReal && setShowEditModal(true)}
+                    disabled={!isReal}
+                    className="flex items-center gap-3 text-left cursor-pointer disabled:cursor-default group"
+                >
+                    <div className="h-10 w-10 rounded-lg bg-zinc-900 border border-zinc-800 group-hover:border-zinc-700 flex items-center justify-center flex-shrink-0 text-zinc-500 overflow-hidden transition-colors">
+                        {imageUrl ? (
+                            <img src={imageUrl} alt={product} className="w-full h-full object-cover" />
+                        ) : (
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                        )}
                     </div>
-                </div>
-            </div>
+                    <div className="flex flex-col gap-0.5">
+                        <h4 className="text-sm font-semibold text-zinc-100 group-hover:text-emerald-300 transition-colors">{product}</h4>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-emerald-400 font-medium">{price}</span>
+                            <span className="text-zinc-700">•</span>
+                            {getCategoryBadge(category)}
+                        </div>
+                    </div>
+                </button>
 
             {/* Right side: Auto Toggle + Action Button */}
             <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t sm:border-t-0 border-zinc-800/60 pt-3 sm:pt-0">
@@ -174,7 +186,27 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
                     </button>
                 )}
             </div>
-        </div>
+            </div>
+
+            {showEditModal && (
+                <ProductEditModal
+                    product={{
+                        id,
+                        name: product,
+                        description,
+                        category,
+                        rawPrice,
+                        autoPost: autoPostState,
+                        imageUrl: imageUrl ? `${imageUrl}?t=${Date.now()}` : null
+                    }}
+                    onClose={() => setShowEditModal(false)}
+                    onSaved={() => {
+                        setShowEditModal(false);
+                        if (onPost) onPost();
+                    }}
+                />
+            )}
+        </>
     );
 }
 

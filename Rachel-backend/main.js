@@ -16,7 +16,12 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 // ─── DATABASE SETUP ──────────────────────────────────────────────────────────
-const db = new Database(path.resolve(__dirname, 'rachel.db'));
+const dbPath = process.env.DATABASE_PATH || path.resolve(__dirname, 'rachel.db');
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+}
+const db = new Database(dbPath);
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -36,6 +41,7 @@ db.exec(`
         price REAL NOT NULL,
         category TEXT,
         auto_post INTEGER DEFAULT 0,
+        image_path TEXT,
         created_at TEXT DEFAULT (datetime('now')),
         updated_at TEXT DEFAULT (datetime('now')),
         FOREIGN KEY (user_id) REFERENCES users(id)
@@ -78,6 +84,96 @@ try {
     console.error('Failed to seed default product:', err.message);
 }
 
+const uploadsDir = process.env.UPLOADS_DIR || path.join(dbDir, 'product-images');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+try {
+    const columns = db.prepare('PRAGMA table_info(products)').all();
+    if (!columns.some((col) => col.name === 'image_path')) {
+        db.exec('ALTER TABLE products ADD COLUMN image_path TEXT');
+    }
+} catch (err) {
+    console.error('Failed to migrate products table:', err.message);
+}
+
+function extensionFromMime(mimeType) {
+    const map = {
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'image/webp': '.webp',
+        'image/gif': '.gif'
+    };
+    return map[mimeType] || '.png';
+}
+
+function getImageContentType(filePath) {
+    const ext = path.extname(filePath).toLowerCase();
+    const map = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.webp': 'image/webp',
+        '.gif': 'image/gif'
+    };
+    return map[ext] || 'image/png';
+}
+
+function saveProductImage(productId, imageData) {
+    let base64 = imageData;
+    let mimeType = 'image/png';
+
+    const dataUrlMatch = imageData.match(/^data:(image\/[\w+.-]+);base64,(.+)$/);
+    if (dataUrlMatch) {
+        mimeType = dataUrlMatch[1];
+        base64 = dataUrlMatch[2];
+    }
+
+    const filename = `${productId}${extensionFromMime(mimeType)}`;
+    fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(base64, 'base64'));
+    return filename;
+}
+
+function getProductImageFilePath(imagePath) {
+    if (!imagePath) return null;
+    const fullPath = path.join(uploadsDir, imagePath);
+    return fs.existsSync(fullPath) ? fullPath : null;
+}
+
+function deleteProductImage(imagePath) {
+    const fullPath = getProductImageFilePath(imagePath);
+    if (fullPath) {
+        fs.unlinkSync(fullPath);
+    }
+}
+
+function getListingImage(productId) {
+    if (productId) {
+        const product = db.prepare('SELECT image_path FROM products WHERE id = ?').get(productId);
+        const imagePath = getProductImageFilePath(product?.image_path);
+        if (imagePath) {
+            return {
+                buffer: fs.readFileSync(imagePath),
+                contentType: getImageContentType(imagePath)
+            };
+        }
+    }
+
+    const fallbackPath = path.resolve(__dirname, 'public/joeswag.png');
+    if (fs.existsSync(fallbackPath)) {
+        return {
+            buffer: fs.readFileSync(fallbackPath),
+            contentType: 'image/png'
+        };
+    }
+
+    return {
+        buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'),
+        contentType: 'image/png'
+    };
+}
+
 // DB helper functions
 function logAgent(agent, action, detail = null, userId = null) {
     db.prepare(`
@@ -103,7 +199,7 @@ function updateListingStatus(gameflipId, status) {
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Apply rate limiter to all API endpoints
 const limiter = rateLimit({
@@ -254,27 +350,18 @@ app.post('/api/listings', async (req, res) => {
         const uploadUrl2 = photoResponse2.data.data.upload_url;
         const photoId2 = photoResponse2.data.data.id;
 
-        // Read local cover photo image (joeswag.png) from public folder to avoid network 404s
-        console.log('Reading local cover photo image (joeswag.png)...');
-        let defaultImageBuffer;
-        try {
-            const imagePath = path.resolve(__dirname, '../Rachel-frontend/public/joeswag.png');
-            defaultImageBuffer = fs.readFileSync(imagePath);
-        } catch (e) {
-            console.warn('Could not read joeswag.png, falling back to 1x1 transparent PNG base64...', e.message);
-            defaultImageBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
-        }
+        const { buffer: listingImageBuffer, contentType: listingImageType } = getListingImage(product_id);
 
-        console.log('Uploading photo buffers to Gameflip S3...');
+        console.log(`Uploading product image to Gameflip S3 (${listingImageType})...`);
         await Promise.all([
-            axios.put(uploadUrl1, defaultImageBuffer, {
+            axios.put(uploadUrl1, listingImageBuffer, {
                 headers: {
-                    'Content-Type': 'image/png'
+                    'Content-Type': listingImageType
                 }
             }),
-            axios.put(uploadUrl2, defaultImageBuffer, {
+            axios.put(uploadUrl2, listingImageBuffer, {
                 headers: {
-                    'Content-Type': 'image/png'
+                    'Content-Type': listingImageType
                 }
             })
         ]);
@@ -449,14 +536,39 @@ app.get('/api/db/products', (req, res) => {
 // POST /api/db/products — save a product to local DB
 app.post('/api/db/products', (req, res) => {
     try {
-        const { id, name, description, price, category, auto_post, user_id } = req.body;
+        const { id, name, description, price, category, auto_post, user_id, image } = req.body;
+
+        if (!image) {
+            return res.status(400).json({ error: 'Product image is required' });
+        }
+
+        const imagePath = saveProductImage(id, image);
         db.prepare(`
-            INSERT OR REPLACE INTO products (id, user_id, name, description, price, category, auto_post, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-        `).run(id, user_id, name, description, price, category, auto_post ? 1 : 0);
-        res.json({ success: true });
+            INSERT OR REPLACE INTO products (id, user_id, name, description, price, category, auto_post, image_path, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        `).run(id, user_id, name, description, price, category, auto_post ? 1 : 0, imagePath);
+        res.json({ success: true, image_path: imagePath });
     } catch (error) {
         console.error('DB save product error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET /api/db/products/:id/image — serve stored product image
+app.get('/api/db/products/:id/image', (req, res) => {
+    try {
+        const { id } = req.params;
+        const product = db.prepare('SELECT image_path FROM products WHERE id = ?').get(id);
+        const imagePath = getProductImageFilePath(product?.image_path);
+
+        if (!imagePath) {
+            return res.status(404).json({ error: 'Product image not found' });
+        }
+
+        res.type(getImageContentType(imagePath));
+        res.sendFile(imagePath);
+    } catch (error) {
+        console.error('DB fetch product image error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
@@ -465,10 +577,54 @@ app.post('/api/db/products', (req, res) => {
 app.delete('/api/db/products/:id', (req, res) => {
     try {
         const { id } = req.params;
-        db.prepare('DELETE FROM products WHERE id = ?').run(id);
+        const deleteProduct = db.transaction((productId) => {
+            const product = db.prepare('SELECT image_path FROM products WHERE id = ?').get(productId);
+            deleteProductImage(product?.image_path);
+            db.prepare('DELETE FROM listings WHERE product_id = ?').run(productId);
+            db.prepare('DELETE FROM products WHERE id = ?').run(productId);
+        });
+        deleteProduct(id);
         res.json({ success: true });
     } catch (error) {
         console.error('DB delete product error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// PATCH /api/db/products/:id — update product attributes
+app.patch('/api/db/products/:id', (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, description, price, category, auto_post, image } = req.body;
+
+        const existing = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+        if (!existing) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+
+        let imagePath = existing.image_path;
+        if (image) {
+            deleteProductImage(existing.image_path);
+            imagePath = saveProductImage(id, image);
+        }
+
+        db.prepare(`
+            UPDATE products
+            SET name = ?, description = ?, price = ?, category = ?, auto_post = ?, image_path = ?, updated_at = datetime('now')
+            WHERE id = ?
+        `).run(
+            name ?? existing.name,
+            description ?? existing.description,
+            price ?? existing.price,
+            category ?? existing.category,
+            auto_post ? 1 : 0,
+            imagePath,
+            id
+        );
+
+        res.json({ success: true, image_path: imagePath });
+    } catch (error) {
+        console.error('DB update product error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
@@ -479,7 +635,7 @@ app.patch('/api/db/products/:id/autopost', (req, res) => {
         const { id } = req.params;
         const { auto_post } = req.body;
         db.prepare('UPDATE products SET auto_post = ?, updated_at = datetime(\'now\') WHERE id = ?')
-          .run(auto_post ? 1 : 0, id);
+            .run(auto_post ? 1 : 0, id);
         res.json({ success: true });
     } catch (error) {
         console.error('DB update auto_post error:', error.message);
@@ -512,8 +668,17 @@ app.get('/api/db/logs', (req, res) => {
 
 // ─── END DB ENDPOINTS ─────────────────────────────────────────────────────────
 
+// Serve built frontend in production (Docker / single-container deploy)
+const staticDir = process.env.STATIC_DIR || path.resolve(__dirname, 'public');
+if (fs.existsSync(staticDir)) {
+    app.use(express.static(staticDir));
+    app.get(/^(?!\/api).*/, (_req, res) => {
+        res.sendFile(path.join(staticDir, 'index.html'));
+    });
+}
+
 // Start Server
-app.listen(PORT, async () => {
+app.listen(PORT, '0.0.0.0', async () => {
     console.log(`Rachel Gameflip proxy server running on http://localhost:${PORT}`);
     // Validate authentication at start
     try {
