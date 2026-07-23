@@ -1,17 +1,16 @@
 services:
-  rachel:
-    build: .
+  backend:
+    build: ./Rachel-backend
     ports:
       - "3000:3000"
     env_file:
-      - Rachel-backend/.env
-    environment:
-      - PORT=3000
-      - DATABASE_PATH=/app/data/rachel.db
-      - STATIC_DIR=/app/public
+      - ./Rachel-backend/.env
     volumes:
-      - rachel-data:/app/data
-    restart: unless-stopped
+      - ./Rachel-backend/data:/app/data
 
-volumes:
-  rachel-data:
+  frontend:
+    build: ./Rachel-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
