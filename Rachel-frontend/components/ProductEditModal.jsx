@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import { API_URL } from '../src/config';
 import ImageUploader from './ImageUploader';
 
 function ProductEditModal({ product, onClose, onSaved }) {
@@ -44,7 +45,7 @@ function ProductEditModal({ product, onClose, onSaved }) {
                 payload.image = await fileToBase64(imageFile);
             }
 
-            await axios.patch(`http://localhost:3000/api/db/products/${product.id}`, payload);
+            await axios.patch(`${API_URL}/api/db/products/${product.id}`, payload);
             onSaved?.();
         } catch (error) {
             console.log('Error updating product:', error.response?.data || error.message);

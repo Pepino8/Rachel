@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { API_URL } from '../src/config';
 import ImageUploader from './ImageUploader';
 
 function CreateImport({ onProductCreated }) {
@@ -50,7 +51,7 @@ function CreateImport({ onProductCreated }) {
             const image = await fileToBase64(imageFile);
 
             // 1. Save product to local DB
-            await axios.post('http://localhost:3000/api/db/products', {
+            await axios.post(`${API_URL}/api/db/products`, {
                 id: productId,
                 name: nombre,
                 description: desc,

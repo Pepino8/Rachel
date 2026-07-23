@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import { API_URL } from '../src/config';
 
 function PurgeListings() {
     const [isPurgingExpired, setIsPurgingExpired] = useState(false);
@@ -10,7 +11,7 @@ function PurgeListings() {
         setIsPurgingExpired(true);
         console.log("Requesting Gameflip expired listings purge...");
         try {
-            const response = await axios.post("http://localhost:3000/api/purge/expired");
+            const response = await axios.post(`${API_URL}/api/purge/expired`);
             console.log("Purge expired success:", response.data);
             setPurgedCount(response.data.purged || 0);
             alert(`Purged ${response.data.purged || 0} expired/draft listings!`);
@@ -29,7 +30,7 @@ function PurgeListings() {
         setIsPurgingAll(true);
         console.log("Requesting Gameflip ALL listings purge...");
         try {
-            const response = await axios.post("http://localhost:3000/api/purge/all");
+            const response = await axios.post(`${API_URL}/api/purge/all`);
             console.log("Purge all success:", response.data);
             setPurgedCount(response.data.purged || 0);
             alert(`Purged all ${response.data.purged || 0} listings!`);

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL } from '../src/config';
 import Switch from '@mui/material/Switch';
 import ProductEditModal from './ProductEditModal';
 
@@ -52,7 +53,7 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
         setIsToggling(true);
         try {
             console.log(`Toggling auto_post for product ${id} to ${newValue}...`);
-            await axios.patch(`http://localhost:3000/api/db/products/${id}/autopost`, {
+            await axios.patch(`${API_URL}/api/db/products/${id}/autopost`, {
                 auto_post: newValue
             });
             console.log(`Successfully toggled auto_post for ${id}`);
@@ -74,7 +75,7 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
         setIsDeleting(true);
         try {
             console.log(`Deleting product ${id} from DB...`);
-            await axios.delete(`http://localhost:3000/api/db/products/${id}`);
+            await axios.delete(`${API_URL}/api/db/products/${id}`);
             console.log(`Successfully deleted product ${id} from DB`);
             if (onDelete) onDelete(id);
         } catch (error) {
@@ -93,7 +94,7 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
             // Strip $ from price if needed
             const cleanPrice = typeof price === 'string' && price.startsWith('$') ? price.slice(1) : price;
 
-            const response = await axios.post('http://localhost:3000/api/listings', {
+            const response = await axios.post(`${API_URL}/api/listings`, {
                 name: product,
                 description: description || 'No description provided.',
                 price: rawPrice || cleanPrice,

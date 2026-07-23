@@ -9,7 +9,10 @@ services:
       - ./Rachel-backend/data:/app/data
 
   frontend:
-    build: ./Rachel-frontend
+    build:
+      context: ./Rachel-frontend
+      args:
+        - VITE_API_URL=https://rachel-lh60.onrender.com
     ports:
       - "80:80"
     depends_on:

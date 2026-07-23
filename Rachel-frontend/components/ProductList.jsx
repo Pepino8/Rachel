@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL } from '../src/config';
 import Product from '../components/Product';
 import SearchBar from './SearchBar';
 
@@ -12,7 +13,7 @@ function ProductList({ refreshTrigger }) {
         setIsLoading(true);
         console.log("Fetching inventory products from local DB...");
         try {
-            const response = await axios.get('http://localhost:3000/api/db/products');
+            const response = await axios.get(`${API_URL}/api/db/products`);
             console.log("products fetched successfully:", response.data);
             
             if (response.data && Array.isArray(response.data)) {
@@ -24,7 +25,7 @@ function ProductList({ refreshTrigger }) {
                     price: `$${parseFloat(item.price || 0).toFixed(2)}`,
                     rawPrice: item.price,
                     autoPost: item.auto_post === 1 || item.auto_post === true,
-                    imageUrl: item.image_path ? `http://localhost:3000/api/db/products/${item.id}/image` : null,
+                    imageUrl: item.image_path ? `${API_URL}/api/db/products/${item.id}/image` : null,
                     isReal: true
                 }));
                 setProducts(mapped);

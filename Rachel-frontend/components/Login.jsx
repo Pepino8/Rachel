@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { API_URL } from '../src/config';
 
 function Login({ onLoginSuccess }) {
     const [isRegistering, setIsRegistering] = useState(false);
@@ -37,7 +38,7 @@ function Login({ onLoginSuccess }) {
 
         try {
             if (isRegistering) {
-                const response = await axios.post('http://localhost:3000/api/auth/register', {
+                const response = await axios.post(`${API_URL}/api/auth/register`, {
                     username,
                     password
                 });
@@ -51,7 +52,7 @@ function Login({ onLoginSuccess }) {
                     }, 1200);
                 }
             } else {
-                const response = await axios.post('http://localhost:3000/api/auth/login', {
+                const response = await axios.post(`${API_URL}/api/auth/login`, {
                     username,
                     password
                 });

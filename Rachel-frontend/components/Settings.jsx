@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { API_URL } from '../src/config';
 
 function Settings() {
     const [user, setUser] = useState(null);
@@ -36,7 +37,7 @@ function Settings() {
     const fetchProfile = async () => {
         try {
             const token = localStorage.getItem('rachel_token');
-            const response = await axios.get('http://localhost:3000/api/auth/me', {
+            const response = await axios.get(`${API_URL}/api/auth/me`, {
                 headers: { Authorization: token }
             });
             if (response.data.success) {
@@ -55,7 +56,7 @@ function Settings() {
         setUserActionError('');
         try {
             const token = localStorage.getItem('rachel_token');
-            const response = await axios.get('http://localhost:3000/api/auth/users', {
+            const response = await axios.get(`${API_URL}/api/auth/users`, {
                 headers: { Authorization: token }
             });
             if (response.data.success) {
@@ -79,7 +80,7 @@ function Settings() {
 
         try {
             const token = localStorage.getItem('rachel_token');
-            const response = await axios.delete(`http://localhost:3000/api/auth/users/${userId}`, {
+            const response = await axios.delete(`${API_URL}/api/auth/users/${userId}`, {
                 headers: { Authorization: token }
             });
 
@@ -100,7 +101,7 @@ function Settings() {
 
         try {
             const token = localStorage.getItem('rachel_token');
-            const response = await axios.post('http://localhost:3000/api/auth/update-gameflip', {
+            const response = await axios.post(`${API_URL}/api/auth/update-gameflip`, {
                 apiKey,
                 totpSecret
             }, {
@@ -135,7 +136,7 @@ function Settings() {
 
         try {
             const token = localStorage.getItem('rachel_token');
-            const response = await axios.post('http://localhost:3000/api/auth/update-profile', {
+            const response = await axios.post(`${API_URL}/api/auth/update-profile`, {
                 username: username || undefined,
                 password: password || undefined,
                 confirmPassword: confirmPassword || undefined

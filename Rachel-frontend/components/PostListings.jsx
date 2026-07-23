@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { API_URL } from '../src/config';
 
 function PostListings() {
     const [isPressed, setIsPressed] = useState(false);
@@ -18,7 +19,7 @@ function PostListings() {
             try {
                 console.log("Auto-posting inventory listings to Gameflip...");
                 // Fetch products from local database
-                const dbRes = await axios.get("http://localhost:3000/api/db/products");
+                const dbRes = await axios.get(`${API_URL}/api/db/products`);
                 const allProducts = dbRes.data || [];
                 
                 // Filter only products that have auto_post enabled
@@ -36,7 +37,7 @@ function PostListings() {
                 
                 console.log(`Auto-posting selected product: ${prod.name} (Index: ${currentCount % autoProducts.length})`);
                 try {
-                    await axios.post("http://localhost:3000/api/listings", {
+                    await axios.post(`${API_URL}/api/listings`, {
                         name: prod.name,
                         description: prod.description || "Automatically posted by Rachel dashboard agent.",
                         price: prod.price,
