@@ -1,7 +1,6 @@
-
 import { useState } from 'react';
 
-function Header() {
+function Header({ onLogout, currentTab, setCurrentTab }) {
     const [isOpen, setIsOpen] = useState(false);
 
     return (
@@ -19,12 +18,35 @@ function Header() {
 
                 {/* Desktop Navigation */}
                 <nav className="hidden md:flex items-center gap-6">
-                    <a href="#" className="text-sm font-medium text-emerald-400 bg-emerald-500/10 px-3 py-1.5 rounded-md border border-emerald-500/20 transition-all duration-200">
+                    <button
+                        onClick={() => setCurrentTab('dashboard')}
+                        className={`text-sm font-medium px-3 py-1.5 rounded-md transition-all duration-200 cursor-pointer ${
+                            currentTab === 'dashboard'
+                                ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent'
+                        }`}
+                    >
                         Dashboard
-                    </a>
-                    <a href="#" className="text-sm font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 px-3 py-1.5 rounded-md transition-all duration-200">
+                    </button>
+                    <button
+                        onClick={() => setCurrentTab('settings')}
+                        className={`text-sm font-medium px-3 py-1.5 rounded-md transition-all duration-200 cursor-pointer ${
+                            currentTab === 'settings'
+                                ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50 border border-transparent'
+                        }`}
+                    >
                         Settings
-                    </a>
+                    </button>
+                    <button
+                        onClick={onLogout}
+                        className="text-sm font-medium text-red-400/90 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 px-3 py-1.5 rounded-md transition-all duration-200 cursor-pointer flex items-center gap-1.5"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Log Out
+                    </button>
                 </nav>
 
                 {/* Mobile Menu Button */}
@@ -38,11 +60,11 @@ function Header() {
                     >
                         <span className="sr-only">Open main menu</span>
                         {!isOpen ? (
-                            <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true">
+                            <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                             </svg>
                         ) : (
-                            <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" aria-hidden="true">
+                            <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         )}
@@ -53,12 +75,38 @@ function Header() {
             {/* Mobile Navigation Dropdown */}
             {isOpen && (
                 <div className="md:hidden border-b border-zinc-800 bg-zinc-950 px-2 pt-2 pb-4 space-y-1 sm:px-3 animate-in slide-in-from-top-2 duration-200">
-                    <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/10">
+                    <button
+                        onClick={() => {
+                            setCurrentTab('dashboard');
+                            setIsOpen(false);
+                        }}
+                        className={`w-full text-left block px-3 py-2 rounded-md text-base font-medium transition-all duration-200 cursor-pointer ${
+                            currentTab === 'dashboard'
+                                ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/10'
+                                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                        }`}
+                    >
                         Dashboard
-                    </a>
-                    <a href="#" className="block px-3 py-2 rounded-md text-base font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900">
+                    </button>
+                    <button
+                        onClick={() => {
+                            setCurrentTab('settings');
+                            setIsOpen(false);
+                        }}
+                        className={`w-full text-left block px-3 py-2 rounded-md text-base font-medium transition-all duration-200 cursor-pointer ${
+                            currentTab === 'settings'
+                                ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/10'
+                                : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                        }`}
+                    >
                         Settings
-                    </a>
+                    </button>
+                    <button
+                        onClick={onLogout}
+                        className="w-full text-left block px-3 py-2 rounded-md text-base font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 cursor-pointer"
+                    >
+                        Log Out
+                    </button>
                 </div>
             )}
         </header>
