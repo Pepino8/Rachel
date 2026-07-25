@@ -44,8 +44,8 @@ function CreateImport({ onProductCreated }) {
 
         try {
             // Generate product ID
-            const productId = typeof window !== 'undefined' && window.crypto?.randomUUID 
-                ? window.crypto.randomUUID() 
+            const productId = typeof window !== 'undefined' && window.crypto?.randomUUID
+                ? window.crypto.randomUUID()
                 : 'prod_' + Math.random().toString(36).substring(2, 15);
 
             const image = await fileToBase64(imageFile);

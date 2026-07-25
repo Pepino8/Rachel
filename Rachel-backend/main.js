@@ -9,6 +9,13 @@ import { fileURLToPath } from 'url';
 import { rateLimit } from 'express-rate-limit';
 import Database from 'better-sqlite3';
 import crypto from 'crypto';
+import { v2 as cloudinary } from 'cloudinary';
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -129,19 +136,12 @@ function getImageContentType(filePath) {
     return map[ext] || 'image/png';
 }
 
-function saveProductImage(productId, imageData) {
-    let base64 = imageData;
-    let mimeType = 'image/png';
-
-    const dataUrlMatch = imageData.match(/^data:(image\/[\w+.-]+);base64,(.+)$/);
-    if (dataUrlMatch) {
-        mimeType = dataUrlMatch[1];
-        base64 = dataUrlMatch[2];
-    }
-
-    const filename = `${productId}${extensionFromMime(mimeType)}`;
-    fs.writeFileSync(path.join(uploadsDir, filename), Buffer.from(base64, 'base64'));
-    return filename;
+async function saveProductImage(productId, imageData) {
+    const result = await cloudinary.uploader.upload(imageData, {
+        public_id: `rachel-products/${productId}`,
+        overwrite: true
+    });
+    return result.secure_url;
 }
 
 function getProductImageFilePath(imagePath) {
@@ -157,24 +157,25 @@ function deleteProductImage(imagePath) {
     }
 }
 
-function getListingImage(productId) {
+async function getListingImage(productId) {
     if (productId) {
         const product = db.prepare('SELECT image_path FROM products WHERE id = ?').get(productId);
-        const imagePath = getProductImageFilePath(product?.image_path);
-        if (imagePath) {
-            return {
-                buffer: fs.readFileSync(imagePath),
-                contentType: getImageContentType(imagePath)
-            };
+        if (product?.image_path) {
+            try {
+                const response = await axios.get(product.image_path, { responseType: 'arraybuffer' });
+                return {
+                    buffer: Buffer.from(response.data),
+                    contentType: response.headers['content-type'] || 'image/png'
+                };
+            } catch (err) {
+                console.error('Failed to fetch product image from Cloudinary:', err.message);
+            }
         }
     }
 
     const fallbackPath = path.resolve(__dirname, 'public/joeswag.png');
     if (fs.existsSync(fallbackPath)) {
-        return {
-            buffer: fs.readFileSync(fallbackPath),
-            contentType: 'image/png'
-        };
+        return { buffer: fs.readFileSync(fallbackPath), contentType: 'image/png' };
     }
 
     return {
@@ -323,7 +324,7 @@ async function deleteListingSafely(id, user) {
 app.post('/api/auth/login', (req, res) => {
     try {
         const { username, password } = req.body;
-        
+
         // 1. Check admin env credentials
         const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
         const expectedPassword = process.env.ADMIN_PASSWORD || 'rachel123';
@@ -557,7 +558,7 @@ app.delete('/api/auth/users/:id', (req, res) => {
             return res.status(403).json({ error: 'Access denied.' });
         }
         const { id } = req.params;
-        
+
         const deleteTx = db.transaction((userId) => {
             // First, delete listings referencing any of this user's products to avoid foreign key violations
             db.prepare('DELETE FROM listings WHERE product_id IN (SELECT id FROM products WHERE user_id =?)').run(userId);
@@ -649,7 +650,7 @@ app.post('/api/listings', async (req, res) => {
         const uploadUrl2 = photoResponse2.data.data.upload_url;
         const photoId2 = photoResponse2.data.data.id;
 
-        const { buffer: listingImageBuffer, contentType: listingImageType } = getListingImage(product_id);
+        const { buffer: listingImageBuffer, contentType: listingImageType } = await getListingImage(product_id);
 
         console.log(`Uploading product image to Gameflip S3 (${listingImageType})...`);
         await Promise.all([
@@ -840,7 +841,7 @@ app.get('/api/db/products', (req, res) => {
 });
 
 // POST /api/db/products — save a product to local DB (user-scoped)
-app.post('/api/db/products', (req, res) => {
+app.post('/api/db/products', async (req, res) => {
     try {
         const user = getCurrentUser(req);
         if (!user) return res.status(401).json({ error: 'Unauthorized.' });
@@ -851,7 +852,7 @@ app.post('/api/db/products', (req, res) => {
             return res.status(400).json({ error: 'Product image is required' });
         }
 
-        const imagePath = saveProductImage(id, image);
+        const imagePath = await saveProductImage(id, image);
         db.prepare(`
             INSERT OR REPLACE INTO products (id, user_id, name, description, price, category, auto_post, image_path, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
@@ -866,19 +867,12 @@ app.post('/api/db/products', (req, res) => {
 // GET /api/db/products/:id/image — serve stored product image (user-scoped)
 app.get('/api/db/products/:id/image', (req, res) => {
     try {
-        const user = getCurrentUser(req);
-        if (!user) return res.status(401).json({ error: 'Unauthorized.' });
-
         const { id } = req.params;
-        const product = db.prepare('SELECT image_path FROM products WHERE id = ? AND user_id = ?').get(id, user.id);
-        const imagePath = getProductImageFilePath(product?.image_path);
-
-        if (!imagePath) {
+        const product = db.prepare('SELECT image_path FROM products WHERE id = ?').get(id);
+        if (!product?.image_path) {
             return res.status(404).json({ error: 'Product image not found' });
         }
-
-        res.type(getImageContentType(imagePath));
-        res.sendFile(imagePath);
+        res.redirect(product.image_path);
     } catch (error) {
         console.error('DB fetch product image error:', error.message);
         res.status(500).json({ error: error.message });
@@ -909,7 +903,7 @@ app.delete('/api/db/products/:id', (req, res) => {
 });
 
 // PATCH /api/db/products/:id — update product attributes (user-scoped)
-app.patch('/api/db/products/:id', (req, res) => {
+app.patch('/api/db/products/:id', async (req, res) => {
     try {
         const user = getCurrentUser(req);
         if (!user) return res.status(401).json({ error: 'Unauthorized.' });
@@ -925,7 +919,7 @@ app.patch('/api/db/products/:id', (req, res) => {
         let imagePath = existing.image_path;
         if (image) {
             deleteProductImage(existing.image_path);
-            imagePath = saveProductImage(id, image);
+            imagePath = await saveProductImage(id, image);
         }
 
         db.prepare(`
