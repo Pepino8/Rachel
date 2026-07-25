@@ -139,7 +139,10 @@ function getImageContentType(filePath) {
 async function saveProductImage(productId, imageData) {
     const result = await cloudinary.uploader.upload(imageData, {
         public_id: `rachel-products/${productId}`,
-        overwrite: true
+        overwrite: true,
+        transformation: [
+            { width: 1000, height: 1000, crop: 'fill', gravity: 'auto' }
+        ]
     });
     return result.secure_url;
 }
