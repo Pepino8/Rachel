@@ -330,8 +330,8 @@ app.post('/api/auth/login', (req, res) => {
         const { username, password } = req.body;
 
         // 1. Check admin env credentials
-        const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
-        const expectedPassword = process.env.ADMIN_PASSWORD || 'rachel123';
+        const expectedUsername = process.env.ADMIN_USERNAME;
+        const expectedPassword = process.env.ADMIN_PASSWORD;
 
         if (username === expectedUsername && password === expectedPassword) {
             return res.json({
