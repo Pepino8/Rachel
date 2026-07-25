@@ -657,6 +657,10 @@ app.post('/api/listings', async (req, res) => {
         const { buffer: listingImageBuffer, contentType: listingImageType } = await getListingImage(product_id);
 
         console.log(`Uploading product image to Gameflip S3 (${listingImageType})...`);
+        if (listingImageBuffer.length > 500000) {
+            throw new Error(`Image too heavy: ${listingImageBuffer.length} bytes > 500000 allowed by Gameflip`);
+        }
+
         await Promise.all([
             axios.put(uploadUrl1, listingImageBuffer, {
                 headers: {
