@@ -378,7 +378,7 @@ app.post('/api/auth/register', (req, res) => {
         }
 
         // Check if admin credentials conflict (cannot register 'admin' username)
-        const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
+        const expectedUsername = process.env.ADMIN_USERNAME;
         if (username.toLowerCase() === expectedUsername.toLowerCase()) {
             return res.status(400).json({ error: 'Username is not available.' });
         }

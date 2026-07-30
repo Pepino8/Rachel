@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { API_URL } from '../src/config';
 
-function Settings() {
+function Settings({ onProfileUpdated }) {
     const [user, setUser] = useState(null);
     const [isEditingGameflip, setIsEditingGameflip] = useState(false);
 
@@ -114,6 +114,7 @@ function Settings() {
                 setApiKey('');
                 setTotpSecret('');
                 fetchProfile();
+                if (onProfileUpdated) onProfileUpdated();
             }
         } catch (err) {
             setGameflipError(err.response?.data?.error || 'Could not save Gameflip credentials.');
