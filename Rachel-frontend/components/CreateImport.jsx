@@ -162,15 +162,15 @@ function CreateImport({ onProductCreated }) {
                                 <label htmlFor="desc" className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
                                     Description
                                 </label>
-                                <input
-                                    type="text"
+                                <textarea
                                     id="desc"
                                     name="desc"
                                     value={desc}
                                     onChange={(e) => setDesc(e.target.value)}
                                     required
                                     placeholder="Enter description"
-                                    className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:border-emerald-500/50 rounded-lg text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200"
+                                    rows="4"
+                                    className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:border-emerald-500/50 rounded-lg text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200 resize-y"
                                 />
                             </div>
 
