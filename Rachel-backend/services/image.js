@@ -69,14 +69,24 @@ export async function getListingImage(productId) {
     if (productId) {
         const product = db.prepare('SELECT image_path FROM products WHERE id = ?').get(productId);
         if (product?.image_path) {
-            try {
-                const response = await axios.get(product.image_path, { responseType: 'arraybuffer' });
-                return {
-                    buffer: Buffer.from(response.data),
-                    contentType: response.headers['content-type'] || 'image/png'
-                };
-            } catch (err) {
-                console.error('Failed to fetch product image from Cloudinary:', err.message);
+            if (product.image_path.startsWith('http://') || product.image_path.startsWith('https://')) {
+                try {
+                    const response = await axios.get(product.image_path, { responseType: 'arraybuffer' });
+                    return {
+                        buffer: Buffer.from(response.data),
+                        contentType: response.headers['content-type'] || 'image/png'
+                    };
+                } catch (err) {
+                    console.error('Failed to fetch product image from Cloudinary:', err.message);
+                }
+            } else {
+                const filePath = getProductImageFilePath(product.image_path);
+                if (filePath) {
+                    return {
+                        buffer: fs.readFileSync(filePath),
+                        contentType: getImageContentType(filePath)
+                    };
+                }
             }
         }
     }

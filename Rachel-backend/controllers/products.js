@@ -1,5 +1,5 @@
 import db from '../config/db.js';
-import { saveProductImage, deleteProductImage } from '../services/image.js';
+import { saveProductImage, deleteProductImage, getProductImageFilePath, getImageContentType } from '../services/image.js';
 
 export function getProducts(req, res) {
     try {
@@ -37,7 +37,18 @@ export function getProductImage(req, res) {
         if (!product?.image_path) {
             return res.status(404).json({ error: 'Product image not found' });
         }
-        res.redirect(product.image_path);
+        
+        if (product.image_path.startsWith('http://') || product.image_path.startsWith('https://')) {
+            return res.redirect(product.image_path);
+        }
+
+        // Local filesystem fallback
+        const filePath = getProductImageFilePath(product.image_path);
+        if (!filePath) {
+            return res.status(404).json({ error: 'Product image file not found' });
+        }
+        res.type(getImageContentType(filePath));
+        res.sendFile(filePath);
     } catch (error) {
         console.error('DB fetch product image error:', error.message);
         res.status(500).json({ error: 'Error al obtener imagen' });

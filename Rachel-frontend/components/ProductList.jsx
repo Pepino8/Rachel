@@ -25,7 +25,9 @@ function ProductList({ refreshTrigger }) {
                     price: `$${parseFloat(item.price || 0).toFixed(2)}`,
                     rawPrice: item.price,
                     autoPost: item.auto_post === 1 || item.auto_post === true,
-                    imageUrl: item.image_path ? `${API_URL}/api/db/products/${item.id}/image` : null,
+                    imageUrl: item.image_path 
+                        ? (item.image_path.startsWith('http') ? item.image_path : `${API_URL}/api/db/products/${item.id}/image`)
+                        : null,
                     isReal: true
                 }));
                 setProducts(mapped);
