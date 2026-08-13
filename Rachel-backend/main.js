@@ -10,6 +10,10 @@ import { rateLimit } from 'express-rate-limit';
 import Database from 'better-sqlite3';
 import crypto from 'crypto';
 import { v2 as cloudinary } from 'cloudinary';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
+dotenv.config();
 
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -20,7 +24,41 @@ cloudinary.config({
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
+// ─── CRYPTO HELPERS ──────────────────────────────────────────────────────────
+const ENCRYPTION_KEY_RAW = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET || 'rachel-default-fallback-encryption-secret-key-32';
+const ENCRYPTION_KEY = crypto.createHash('sha256').update(ENCRYPTION_KEY_RAW).digest();
+
+function encrypt(text) {
+    if (!text) return null;
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
+    let encrypted = cipher.update(text, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const authTag = cipher.getAuthTag().toString('hex');
+    return `${iv.toString('hex')}:${encrypted}:${authTag}`;
+}
+
+function decrypt(encryptedText) {
+    if (!encryptedText) return null;
+    try {
+        const parts = encryptedText.split(':');
+        if (parts.length !== 3) {
+            return encryptedText; // legacy fallback
+        }
+        const iv = Buffer.from(parts[0], 'hex');
+        const encrypted = parts[1];
+        const authTag = Buffer.from(parts[2], 'hex');
+        const decipher = crypto.createDecipheriv('aes-256-gcm', ENCRYPTION_KEY, iv);
+        decipher.setAuthTag(authTag);
+        let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+    } catch (err) {
+        console.error('Failed to decrypt Gameflip credentials (might be legacy unencrypted data):', err.message);
+        return encryptedText;
+    }
+}
+
 
 // ─── DATABASE SETUP ──────────────────────────────────────────────────────────
 const dbPath = process.env.DATABASE_PATH || path.resolve(__dirname, 'rachel.db');
@@ -212,7 +250,17 @@ function updateListingStatus(gameflipId, status) {
 // ─── END DATABASE SETUP ──────────────────────────────────────────────────────
 
 const app = express();
-app.use(cors());
+const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (process.env.NODE_ENV !== 'production') return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Bloqueado por CORS: Origen no autorizado en producción.'));
+    }
+}));
 app.use(express.json({ limit: '10mb' }));
 
 // Apply rate limiter to all API endpoints
@@ -234,10 +282,16 @@ const TOTP_SECRET = process.env.GAMEFLIP_TOTP_SECRET;
 // Cache for Owner ID per user
 const ownerIdCache = {};
 
-// Helper to retrieve user from session token
+// Helper to retrieve user from session token (JWT)
 function getCurrentUser(req) {
     const authHeader = req.headers.authorization || '';
-    if (authHeader.startsWith('rachel-session-token-')) {
+    if (!authHeader) return null;
+
+    let token = authHeader;
+    if (authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+    } else if (authHeader.startsWith('rachel-session-token-')) {
+        // Soporte heredado para tokens antiguos
         const userId = authHeader.replace('rachel-session-token-', '');
         if (userId === 'mock') {
             let user = db.prepare('SELECT * FROM users WHERE id = ?').get('admin');
@@ -250,7 +304,22 @@ function getCurrentUser(req) {
         }
         return db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
     }
-    return null;
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'rachel-default-fallback-encryption-secret-key-32');
+        if (decoded.id === 'admin') {
+            let user = db.prepare('SELECT * FROM users WHERE id = ?').get('admin');
+            if (!user) {
+                user = { id: 'admin', username: 'admin', role: 'admin' };
+            } else {
+                user.role = 'admin';
+            }
+            return user;
+        }
+        return db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.id);
+    } catch (err) {
+        return null;
+    }
 }
 
 // Helper to generate Authorization Header
@@ -259,8 +328,8 @@ function getAuthHeaders(user) {
     let totpSecret = null;
 
     if (user && user.gameflip_api_key_enc && user.gameflip_totp_secret_enc) {
-        apiKey = user.gameflip_api_key_enc;
-        totpSecret = user.gameflip_totp_secret_enc;
+        apiKey = decrypt(user.gameflip_api_key_enc);
+        totpSecret = decrypt(user.gameflip_totp_secret_enc);
     }
 
     if (!apiKey || !totpSecret) {
@@ -273,6 +342,7 @@ function getAuthHeaders(user) {
         'Content-Type': 'application/json'
     };
 }
+
 
 // Fetch Owner ID dynamically from profile
 async function getOwnerId(user) {
@@ -334,9 +404,14 @@ app.post('/api/auth/login', (req, res) => {
         const expectedPassword = process.env.ADMIN_PASSWORD;
 
         if (username === expectedUsername && password === expectedPassword) {
+            const token = jwt.sign(
+                { id: 'admin', username: expectedUsername, role: 'admin' },
+                process.env.JWT_SECRET || 'rachel-default-fallback-encryption-secret-key-32',
+                { expiresIn: '7d' }
+            );
             return res.json({
                 success: true,
-                token: 'rachel-session-token-mock',
+                token: token,
                 user: {
                     id: 'admin',
                     username: expectedUsername,
@@ -348,17 +423,39 @@ app.post('/api/auth/login', (req, res) => {
 
         // 2. Check users database
         const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-        if (user && user.password === password) {
-            return res.json({
-                success: true,
-                token: `rachel-session-token-${user.id}`,
-                user: {
-                    id: user.id,
-                    username: user.username,
-                    email: user.email,
-                    role: 'user'
+        if (user) {
+            let passwordMatches = false;
+            // Si no empieza con $2a$ o $2b$, asumimos que es texto plano (legacy)
+            const isPlaintext = !user.password.startsWith('$2a$') && !user.password.startsWith('$2b$');
+
+            if (isPlaintext) {
+                passwordMatches = (user.password === password);
+                if (passwordMatches) {
+                    // Migrar a hash bcrypt en caliente para mayor seguridad futura
+                    const hashedPassword = bcrypt.hashSync(password, 10);
+                    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, user.id);
                 }
-            });
+            } else {
+                passwordMatches = bcrypt.compareSync(password, user.password);
+            }
+
+            if (passwordMatches) {
+                const token = jwt.sign(
+                    { id: user.id, username: user.username, role: 'user' },
+                    process.env.JWT_SECRET || 'rachel-default-fallback-encryption-secret-key-32',
+                    { expiresIn: '7d' }
+                );
+                return res.json({
+                    success: true,
+                    token: token,
+                    user: {
+                        id: user.id,
+                        username: user.username,
+                        email: user.email,
+                        role: 'user'
+                    }
+                });
+            }
         }
 
         res.status(401).json({ error: 'Incorrect username or password' });
@@ -389,16 +486,23 @@ app.post('/api/auth/register', (req, res) => {
             return res.status(400).json({ error: 'Username is already registered.' });
         }
 
-        // Insert new user (without email)
+        // Insert new user with hashed password
         const userId = crypto.randomUUID();
+        const hashedPassword = bcrypt.hashSync(password, 10);
         db.prepare(`
             INSERT INTO users (id, username, password)
             VALUES (?, ?, ?)
-        `).run(userId, username, password);
+        `).run(userId, username, hashedPassword);
+
+        const token = jwt.sign(
+            { id: userId, username, role: 'user' },
+            process.env.JWT_SECRET || 'rachel-default-fallback-encryption-secret-key-32',
+            { expiresIn: '7d' }
+        );
 
         res.json({
             success: true,
-            token: `rachel-session-token-${userId}`,
+            token: token,
             user: {
                 id: userId,
                 username,
@@ -475,7 +579,8 @@ app.post('/api/auth/update-profile', (req, res) => {
                 return res.status(400).json({ error: 'Password must be at least 6 characters.' });
             }
 
-            db.prepare('UPDATE users SET password = ? WHERE id = ?').run(password, user.id);
+            const hashedPassword = bcrypt.hashSync(password, 10);
+            db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, user.id);
         }
 
         res.json({
@@ -520,6 +625,9 @@ app.post('/api/auth/update-gameflip', async (req, res) => {
             return res.status(400).json({ error: 'Gameflip credentials are not valid. Please verify them.' });
         }
 
+        const encryptedApiKey = encrypt(apiKey);
+        const encryptedTotpSecret = encrypt(totpSecret);
+
         // Save credentials to database (upsert if admin or regular user)
         db.prepare(`
             INSERT INTO users (id, username, gameflip_api_key_enc, gameflip_totp_secret_enc)
@@ -527,7 +635,7 @@ app.post('/api/auth/update-gameflip', async (req, res) => {
             ON CONFLICT(id) DO UPDATE SET
                 gameflip_api_key_enc = excluded.gameflip_api_key_enc,
                 gameflip_totp_secret_enc = excluded.gameflip_totp_secret_enc
-        `).run(user.id, user.username, apiKey, totpSecret);
+        `).run(user.id, user.username, encryptedApiKey, encryptedTotpSecret);
 
         res.json({
             success: true,
