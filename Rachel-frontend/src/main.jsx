@@ -7,6 +7,7 @@ import Login from '../components/Login.jsx'
 import Settings from '../components/Settings.jsx'
 import axios from 'axios'
 import { API_URL } from './config'
+import { ToastProvider } from './ToastContext.jsx'
 
 // Configure global Axios request interceptor to pass user session tokens
 axios.interceptors.request.use((config) => {
@@ -132,6 +133,8 @@ function App() {
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <ToastProvider>
+      <App />
+    </ToastProvider>
   </StrictMode>,
 )

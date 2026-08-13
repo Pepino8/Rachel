@@ -3,8 +3,10 @@ import axios from 'axios';
 import { API_URL } from '../src/config';
 import Switch from '@mui/material/Switch';
 import ProductEditModal from './ProductEditModal';
+import { useToast } from '../src/ToastContext';
 
 function Product({ id, product, description, category, price, rawPrice, autoPost, imageUrl, isReal, onDelete, onPost }) {
+    const { showToast } = useToast();
     const label = { inputProps: { 'aria-label': 'Switch demo' } };
     const [isDeleting, setIsDeleting] = useState(false);
     const [isPosting, setIsPosting] = useState(false);
@@ -60,7 +62,7 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
         } catch (error) {
             console.error("Failed to update auto_post status:", error.message);
             setAutoPostState(!newValue); // revert on error
-            alert(`Failed to update auto-post toggle: ${error.message}`);
+            showToast(`Failed to update auto-post toggle: ${error.message}`, 'error');
         } finally {
             setIsToggling(false);
         }
@@ -80,7 +82,7 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
             if (onDelete) onDelete(id);
         } catch (error) {
             console.error("Failed to delete product:", error.response?.data || error.message);
-            alert(`Error deleting product: ${error.response?.data?.error?.message || error.message}`);
+            showToast(`Error deleting product: ${error.response?.data?.error?.message || error.message}`, 'error');
         } finally {
             setIsDeleting(false);
         }
@@ -103,11 +105,11 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
             });
 
             console.log(`Successfully posted product ${id} to Gameflip:`, response.data);
-            alert(`Product "${product}" successfully posted to Gameflip!`);
+            showToast(`Product "${product}" successfully posted to Gameflip!`, 'success');
             if (onPost) onPost();
         } catch (error) {
             console.error("Failed to post product to Gameflip:", error.response?.data || error.message);
-            alert(`Error posting to Gameflip: ${error.response?.data?.error?.message || error.message}`);
+            showToast(`Error posting to Gameflip: ${error.response?.data?.error?.message || error.message}`, 'error');
         } finally {
             setIsPosting(false);
         }

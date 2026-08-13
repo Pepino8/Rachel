@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_URL } from '../src/config';
 import ImageUploader from './ImageUploader';
+import { useToast } from '../src/ToastContext';
 
 function ProductEditModal({ product, onClose, onSaved }) {
+    const { showToast } = useToast();
     const [name, setName] = useState(product.name);
     const [description, setDescription] = useState(product.description);
     const [price, setPrice] = useState(String(product.rawPrice ?? ''));
@@ -49,7 +51,7 @@ function ProductEditModal({ product, onClose, onSaved }) {
             onSaved?.();
         } catch (error) {
             console.log('Error updating product:', error.response?.data || error.message);
-            alert(`Error: ${error.response?.data?.error?.message || error.response?.data?.error || error.message}`);
+            showToast(`Error: ${error.response?.data?.error?.message || error.response?.data?.error || error.message}`, 'error');
         } finally {
             setIsSaving(false);
         }

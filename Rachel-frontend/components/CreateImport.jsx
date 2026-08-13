@@ -2,8 +2,10 @@ import { useState } from 'react';
 import axios from 'axios';
 import { API_URL } from '../src/config';
 import ImageUploader from './ImageUploader';
+import { useToast } from '../src/ToastContext';
 
 function CreateImport({ onProductCreated }) {
+    const { showToast } = useToast();
     const [create, setCreate] = useState(false);
 
     // Form States
@@ -35,7 +37,7 @@ function CreateImport({ onProductCreated }) {
         e.preventDefault();
 
         if (!imageFile) {
-            alert('Please select a product image');
+            showToast('Please select a product image', 'warning');
             return;
         }
 
@@ -63,7 +65,7 @@ function CreateImport({ onProductCreated }) {
 
             console.log('Successfully saved product to SQLite DB:', productId);
 
-            alert(`Product created successfully! `);
+            showToast('Product created successfully!', 'success');
 
             setCreate(false);
             resetForm();
@@ -74,7 +76,7 @@ function CreateImport({ onProductCreated }) {
             }
         } catch (error) {
             console.error('Error creating product listing:', error.response?.data || error.message);
-            alert(`Error: ${error.response?.data?.error?.message || error.response?.data?.error || error.message}`);
+            showToast(`Error: ${error.response?.data?.error?.message || error.response?.data?.error || error.message}`, 'error');
         } finally {
             setIsLoading(false);
         }
