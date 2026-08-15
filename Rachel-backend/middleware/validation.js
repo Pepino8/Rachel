@@ -73,3 +73,8 @@ export const createListingSchema = z.object({
     category: z.string().min(1, 'La categoría es requerida'),
     product_id: z.string().min(1, 'El ID de producto es requerido')
 });
+
+export const importProductSchema = z.object({
+    url: z.string().min(1, 'URL or ID is required')
+});
+

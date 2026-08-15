@@ -17,6 +17,12 @@ function CreateImport({ onProductCreated }) {
     const [imageFile, setImageFile] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
+    // Import States
+    const [showImport, setShowImport] = useState(false);
+    const [importUrl, setImportUrl] = useState('');
+    const [isImporting, setIsImporting] = useState(false);
+
+
     const fileToBase64 = (file) => new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result);
@@ -82,6 +88,41 @@ function CreateImport({ onProductCreated }) {
         }
     };
 
+    const handleImportSubmit = async (e) => {
+        e.preventDefault();
+        
+        if (!importUrl.trim()) {
+            showToast('Please enter a Gameflip listing URL or ID', 'warning');
+            return;
+        }
+
+        setIsImporting(true);
+        console.log('Sending import request for URL:', importUrl);
+
+        try {
+            const response = await axios.post(`${API_URL}/api/db/products/import`, {
+                url: importUrl
+            });
+
+            console.log('Successfully imported product:', response.data.product);
+            showToast('Product imported successfully!', 'success');
+            
+            setShowImport(false);
+            setImportUrl('');
+            
+            if (onProductCreated) {
+                onProductCreated();
+            }
+        } catch (error) {
+            console.error('Error importing product:', error.response?.data || error.message);
+            const errMsg = error.response?.data?.error || error.message;
+            showToast(`Import failed: ${errMsg}`, 'error');
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
+
     return (
         <div className="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-6 shadow-xl shadow-black/20 w-full transition-all duration-300">
             {/* Title Section */}
@@ -102,6 +143,7 @@ function CreateImport({ onProductCreated }) {
                     Create Product
                 </button>
                 <button
+                    onClick={() => setShowImport(true)}
                     className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-zinc-700/80 bg-zinc-800/40 hover:bg-zinc-800/80 text-zinc-300 font-semibold transition-all duration-200 hover:-translate-y-0.5 cursor-pointer"
                 >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -248,6 +290,76 @@ function CreateImport({ onProductCreated }) {
                                 className="px-4 py-2 text-sm font-semibold text-zinc-950 bg-emerald-500 hover:bg-emerald-400 disabled:bg-emerald-700 disabled:text-zinc-500 rounded-lg shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
                             >
                                 {isLoading ? 'Creating...' : 'Create'}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {/* Import Product Modal overlay */}
+            {showImport && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+                    {/* Modal Card */}
+                    <form onSubmit={handleImportSubmit} className="bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-2xl shadow-2xl w-full max-w-md flex flex-col justify-start animate-in zoom-in-95 duration-200">
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800/60 sticky top-0 bg-zinc-900 z-10">
+                            <span className="text-base font-bold tracking-tight text-zinc-100">Import Product</span>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowImport(false);
+                                    setImportUrl('');
+                                }}
+                                className="text-zinc-400 hover:text-white cursor-pointer transition-colors p-1 hover:bg-zinc-800 rounded-lg"
+                                disabled={isImporting}
+                            >
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Modal Body / Form */}
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label htmlFor="importUrl" className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+                                    Gameflip Listing URL or ID
+                                </label>
+                                <input
+                                    type="text"
+                                    id="importUrl"
+                                    value={importUrl}
+                                    onChange={(e) => setImportUrl(e.target.value)}
+                                    required
+                                    placeholder="https://gameflip.com/item/..."
+                                    disabled={isImporting}
+                                    className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:border-emerald-500/50 rounded-lg text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200"
+                                />
+                                <p className="text-xs text-zinc-500 mt-2">
+                                    Paste the link to any public Gameflip listing. The system will extract listing details and save it as a new product in your local catalog.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Modal Actions Footer */}
+                        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-800/60 bg-zinc-900 z-10 rounded-b-2xl">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setShowImport(false);
+                                    setImportUrl('');
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 bg-zinc-800/30 hover:bg-zinc-800 rounded-lg border border-zinc-700/50 hover:border-zinc-600/50 transition-colors cursor-pointer"
+                                disabled={isImporting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isImporting}
+                                className="px-4 py-2 text-sm font-semibold text-zinc-950 bg-emerald-500 hover:bg-emerald-400 disabled:bg-emerald-700 disabled:text-zinc-500 rounded-lg shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer"
+                            >
+                                {isImporting ? 'Importing...' : 'Import'}
                             </button>
                         </div>
                     </form>
