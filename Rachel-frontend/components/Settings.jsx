@@ -182,7 +182,7 @@ function Settings({ onProfileUpdated }) {
     const isAdmin = user.role === 'admin';
 
     return (
-        <div className="min-h-[calc(100vh-4rem)] w-full flex flex-col lg:flex-row items-start justify-center bg-zinc-950 gap-8 lg:gap-16 px-4 py-8 sm:px-6 lg:px-8 font-sans animate-in fade-in duration-300">
+        <div className="min-h-[calc(100vh-4rem)] w-full flex flex-col lg:flex-row items-center lg:items-start justify-center bg-zinc-950 gap-8 lg:gap-16 px-4 py-8 sm:px-6 lg:px-8 font-sans animate-in fade-in duration-300">
 
             {/* LEFT COLUMN: Settings Cards */}
             <div className="w-full lg:w-1/2 max-w-lg flex flex-col gap-6">
