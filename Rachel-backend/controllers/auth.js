@@ -14,7 +14,7 @@ export function login(req, res) {
         const expectedUsername = process.env.ADMIN_USERNAME;
         const expectedPassword = process.env.ADMIN_PASSWORD;
 
-        if (username === expectedUsername && password === expectedPassword) {
+        if (expectedUsername && expectedPassword && username === expectedUsername && password === expectedPassword) {
             const token = jwt.sign(
                 { id: 'admin', username: expectedUsername, role: 'admin' },
                 process.env.JWT_SECRET || 'rachel-default-fallback-encryption-secret-key-32',
@@ -78,8 +78,8 @@ export function register(req, res) {
     try {
         const { username, password } = req.body;
 
-        const expectedUsername = process.env.ADMIN_USERNAME;
-        if (username.toLowerCase() === expectedUsername.toLowerCase()) {
+        const adminUsername = (process.env.ADMIN_USERNAME || 'admin').toLowerCase();
+        if (username.toLowerCase() === adminUsername || username.toLowerCase() === 'admin') {
             return res.status(400).json({ error: 'Username is not available.' });
         }
 
@@ -145,8 +145,8 @@ export function updateProfile(req, res) {
         }
 
         if (username && username !== user.username) {
-            const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
-            if (username.toLowerCase() === expectedUsername.toLowerCase()) {
+            const adminUsername = (process.env.ADMIN_USERNAME || 'admin').toLowerCase();
+            if (username.toLowerCase() === adminUsername || username.toLowerCase() === 'admin') {
                 return res.status(400).json({ error: 'Username is not available.' });
             }
 

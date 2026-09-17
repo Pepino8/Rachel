@@ -4,10 +4,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
-dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config();
 
 const dbPath = process.env.DATABASE_PATH || path.resolve(__dirname, '../rachel.db');
 const dbDir = path.dirname(dbPath);
@@ -25,6 +26,7 @@ db.exec(`
         id TEXT PRIMARY KEY,
         email TEXT,
         username TEXT,
+        password TEXT,
         gameflip_api_key_enc TEXT,
         gameflip_totp_secret_enc TEXT,
         created_at TEXT DEFAULT (datetime('now'))
