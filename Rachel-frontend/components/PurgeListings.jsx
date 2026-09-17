@@ -1,7 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 import { API_URL } from '../src/config';
-import { useToast } from "../src/ToastContext";
+import { useToast } from '../src/useToast';
 import { createPortal } from "react-dom";
 
 function PurgeListings() {

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { API_URL } from '../src/config';
 import Switch from '@mui/material/Switch';
 import ProductEditModal from './ProductEditModal';
-import { useToast } from '../src/ToastContext';
+import { useToast } from '../src/useToast';
 
 function Product({ id, product, description, category, price, rawPrice, autoPost, imageUrl, isReal, onDelete, onPost }) {
     const { showToast } = useToast();

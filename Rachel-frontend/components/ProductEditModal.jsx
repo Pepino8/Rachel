@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { API_URL } from '../src/config';
 import ImageUploader from './ImageUploader';
-import { useToast } from '../src/ToastContext';
+import { useToast } from '../src/useToast';
 
 function ProductEditModal({ product, onClose, onSaved }) {
     const { showToast } = useToast();

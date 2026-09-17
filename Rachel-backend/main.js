@@ -15,7 +15,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 // Configuración de CORS segura para producción
-const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
+    : [];
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin) return callback(null, true);
@@ -50,6 +52,13 @@ if (fs.existsSync(staticDir)) {
         res.sendFile(path.join(staticDir, 'index.html'));
     });
 }
+
+// Middleware centralizado para captura de errores
+app.use((err, _req, res, _next) => {
+    console.error('Unhandled server error:', err.message);
+    const status = err.status || 500;
+    res.status(status).json({ error: err.message || 'Error interno del servidor' });
+});
 
 // Inicialización del servidor
 const PORT = process.env.PORT || 3000;

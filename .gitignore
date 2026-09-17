@@ -1,2 +1,8 @@
 node_modules
 .env
+dist
+*.db-shm
+*.db-wal
+*.db-journal
+.DS_Store
+Thumbs.db

@@ -41,16 +41,44 @@ export function getImageContentType(filePath) {
 }
 
 export async function saveProductImage(productId, imageData) {
-    const result = await cloudinary.uploader.upload(imageData, {
-        public_id: `rachel-products/${productId}`,
-        overwrite: true,
-        transformation: [
-            { width: 1000, height: 1000, crop: 'fill', gravity: 'auto' },
-            { quality: 'auto:good', fetch_format: 'jpg' }
-        ]
-    });
-    return result.secure_url;
+    if (!imageData) return null;
+
+    if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+        try {
+            const result = await cloudinary.uploader.upload(imageData, {
+                public_id: `rachel-products/${productId}`,
+                overwrite: true,
+                transformation: [
+                    { width: 1000, height: 1000, crop: 'fill', gravity: 'auto' },
+                    { quality: 'auto:good', fetch_format: 'jpg' }
+                ]
+            });
+            return result.secure_url;
+        } catch (cloudinaryErr) {
+            console.warn('Cloudinary upload failed, falling back to local file storage:', cloudinaryErr.message);
+        }
+    }
+
+    // Local filesystem fallback for base64 data
+    if (typeof imageData === 'string' && imageData.startsWith('data:image/')) {
+        const match = imageData.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+        if (match) {
+            const ext = extensionFromMime(match[1]);
+            const filename = `${productId}${ext}`;
+            const filePath = path.join(uploadsDir, filename);
+            fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
+            return filename;
+        }
+    }
+
+    // If it's already an external HTTP/HTTPS URL, return it directly
+    if (typeof imageData === 'string' && (imageData.startsWith('http://') || imageData.startsWith('https://'))) {
+        return imageData;
+    }
+
+    return null;
 }
+
 
 export function getProductImageFilePath(imagePath) {
     if (!imagePath) return null;

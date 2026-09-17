@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { API_URL } from '../src/config';
 
@@ -30,28 +30,7 @@ function Settings({ onProfileUpdated }) {
     const [isLoadingGameflip, setIsLoadingGameflip] = useState(false);
     const [isLoadingAccount, setIsLoadingAccount] = useState(false);
 
-    useEffect(() => {
-        fetchProfile();
-    }, []);
-
-    const fetchProfile = async () => {
-        try {
-            const token = localStorage.getItem('rachel_token');
-            const response = await axios.get(`${API_URL}/api/auth/me`, {
-                headers: { Authorization: token }
-            });
-            if (response.data.success) {
-                setUser(response.data.user);
-                if (response.data.user.role === 'admin') {
-                    fetchUsersList();
-                }
-            }
-        } catch (err) {
-            console.error('Error fetching profile:', err.message);
-        }
-    };
-
-    const fetchUsersList = async () => {
+    const fetchUsersList = useCallback(async () => {
         setIsFetchingUsers(true);
         setUserActionError('');
         try {
@@ -68,7 +47,29 @@ function Settings({ onProfileUpdated }) {
         } finally {
             setIsFetchingUsers(false);
         }
-    };
+    }, []);
+
+    const fetchProfile = useCallback(async () => {
+        try {
+            const token = localStorage.getItem('rachel_token');
+            const response = await axios.get(`${API_URL}/api/auth/me`, {
+                headers: { Authorization: token }
+            });
+            if (response.data.success) {
+                setUser(response.data.user);
+                if (response.data.user.role === 'admin') {
+                    fetchUsersList();
+                }
+            }
+        } catch (err) {
+            console.error('Error fetching profile:', err.message);
+        }
+    }, [fetchUsersList]);
+
+    useEffect(() => {
+        fetchProfile();
+    }, [fetchProfile]);
+
 
     const handleDeleteUser = async (userId) => {
         if (!window.confirm('Are you sure you want to delete this user? All their products, listings, and history will be deleted from the system.')) {

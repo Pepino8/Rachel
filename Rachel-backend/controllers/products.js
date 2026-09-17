@@ -8,13 +8,17 @@ import { getAuthHeaders, GAMEFLIP_API_BASE } from '../services/gameflip.js';
 export function getProducts(req, res) {
     try {
         const user = req.user;
-        const products = db.prepare('SELECT * FROM products WHERE user_id = ? ORDER BY created_at DESC').all(user.id);
+        const query = user.id === 'admin'
+            ? 'SELECT * FROM products WHERE user_id = ? OR user_id IS NULL ORDER BY created_at DESC'
+            : 'SELECT * FROM products WHERE user_id = ? ORDER BY created_at DESC';
+        const products = db.prepare(query).all(user.id);
         res.json(products);
     } catch (error) {
         console.error('DB fetch products error:', error.message);
         res.status(500).json({ error: 'Error al obtener inventario' });
     }
 }
+
 
 export async function saveProduct(req, res) {
     try {
