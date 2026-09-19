@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+
+// Polyfill global WebSocket para entornos Node < 22 donde WebSocket nativo no está disponible
+if (typeof globalThis.WebSocket === 'undefined') {
+    globalThis.WebSocket = WebSocket;
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,6 +29,9 @@ export const supabase = createClient(
         auth: {
             persistSession: false,
             autoRefreshToken: false
+        },
+        realtime: {
+            transport: WebSocket
         }
     }
 );
