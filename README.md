@@ -42,7 +42,7 @@ Built using a modern web stack focused on performance and seamless user experien
 ### ⚙️ Backend (`Rachel-backend`)
 A lightweight, fast API server acting as a secure proxy between your control panel and the Gameflip API.
 * **Node.js & Express**: RESTful API server.
-* **SQLite (better-sqlite3)**: Relational database storing users, products, listings, and logs.
+* **Supabase (@supabase/supabase-js)**: Managed PostgreSQL cloud database storing users, products, listings, and logs.
 * **Cloudinary**: Cloud-based storage for product images.
 * **Zod**: Robust request body validation schemas.
 * **JWT (JSON Web Tokens)**: Secure user session token auth.
@@ -73,7 +73,8 @@ A lightweight, fast API server acting as a secure proxy between your control pan
    JWT_SECRET=your_jwt_signing_secret_here
    ENCRYPTION_KEY=a_secure_32_character_aes_key_here
    CLOUDINARY_URL=cloudinary://api_key:api_secret@cloud_name
-   DATABASE_PATH=./rachel.db
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
    ```
 4. Start the development server:
    ```bash
@@ -104,9 +105,9 @@ A lightweight, fast API server acting as a secure proxy between your control pan
 
 ---
 
-## 📊 Database Schema (SQLite)
+## 📊 Database Schema (Supabase / PostgreSQL)
 
-The system automatically generates the SQLite database file `rachel.db` and sets up the following schema on its first run:
+The system uses a Supabase PostgreSQL database with the following tables:
 
 1. **`users`**: Stores local profiles and encrypted Gameflip credentials.
 2. **`products`**: Your local inventory catalog used as templates for automation.

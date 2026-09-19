@@ -6,7 +6,7 @@ import db from '../config/db.js';
 import { encrypt, GAMEFLIP_API_BASE, getAuthHeaders } from '../services/gameflip.js';
 import { authenticator } from 'otplib';
 
-export function login(req, res) {
+export async function login(req, res) {
     try {
         const { username, password } = req.body;
 
@@ -33,7 +33,17 @@ export function login(req, res) {
         }
 
         // 2. Check users database
-        const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+        const { data: user, error: fetchErr } = await db
+            .from('users')
+            .select('*')
+            .eq('username', username)
+            .maybeSingle();
+
+        if (fetchErr) {
+            console.error('API login DB error:', fetchErr.message);
+            return res.status(500).json({ error: 'Error interno al iniciar sesión' });
+        }
+
         if (user) {
             let passwordMatches = false;
             const isPlaintext = !user.password.startsWith('$2a$') && !user.password.startsWith('$2b$');
@@ -42,7 +52,7 @@ export function login(req, res) {
                 passwordMatches = (user.password === password);
                 if (passwordMatches) {
                     const hashedPassword = bcrypt.hashSync(password, 10);
-                    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, user.id);
+                    await db.from('users').update({ password: hashedPassword }).eq('id', user.id);
                 }
             } else {
                 passwordMatches = bcrypt.compareSync(password, user.password);
@@ -74,7 +84,7 @@ export function login(req, res) {
     }
 }
 
-export function register(req, res) {
+export async function register(req, res) {
     try {
         const { username, password } = req.body;
 
@@ -83,17 +93,28 @@ export function register(req, res) {
             return res.status(400).json({ error: 'Username is not available.' });
         }
 
-        const existingUser = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+        const { data: existingUser } = await db
+            .from('users')
+            .select('id')
+            .ilike('username', username)
+            .maybeSingle();
+
         if (existingUser) {
             return res.status(400).json({ error: 'Username is already registered.' });
         }
 
         const userId = crypto.randomUUID();
         const hashedPassword = bcrypt.hashSync(password, 10);
-        db.prepare(`
-            INSERT INTO users (id, username, password)
-            VALUES (?, ?, ?)
-        `).run(userId, username, hashedPassword);
+        const { error: insertErr } = await db.from('users').insert({
+            id: userId,
+            username: username,
+            password: hashedPassword
+        });
+
+        if (insertErr) {
+            console.error('API register insert error:', insertErr.message);
+            return res.status(500).json({ error: 'Error interno al registrar usuario' });
+        }
 
         const token = jwt.sign(
             { id: userId, username, role: 'user' },
@@ -135,14 +156,16 @@ export function getMe(req, res) {
     }
 }
 
-export function updateProfile(req, res) {
+export async function updateProfile(req, res) {
     try {
         const user = req.user;
-        const { username, password, confirmPassword } = req.body;
+        const { username, password } = req.body;
 
         if (user.id === 'admin') {
             return res.status(400).json({ error: 'Modifying the global administrator account from the API is not allowed.' });
         }
+
+        const updates = {};
 
         if (username && username !== user.username) {
             const adminUsername = (process.env.ADMIN_USERNAME || 'admin').toLowerCase();
@@ -150,18 +173,31 @@ export function updateProfile(req, res) {
                 return res.status(400).json({ error: 'Username is not available.' });
             }
 
-            const existingUser = db.prepare('SELECT * FROM users WHERE username = ? AND id != ?').get(username, user.id);
+            const { data: existingUser } = await db
+                .from('users')
+                .select('id')
+                .ilike('username', username)
+                .neq('id', user.id)
+                .maybeSingle();
+
             if (existingUser) {
                 return res.status(400).json({ error: 'Username is already in use.' });
             }
 
-            db.prepare('UPDATE users SET username = ? WHERE id = ?').run(username, user.id);
+            updates.username = username;
             user.username = username;
         }
 
         if (password) {
-            const hashedPassword = bcrypt.hashSync(password, 10);
-            db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashedPassword, user.id);
+            updates.password = bcrypt.hashSync(password, 10);
+        }
+
+        if (Object.keys(updates).length > 0) {
+            const { error: updateErr } = await db.from('users').update(updates).eq('id', user.id);
+            if (updateErr) {
+                console.error('API update profile DB error:', updateErr.message);
+                return res.status(500).json({ error: 'Error al actualizar perfil' });
+            }
         }
 
         res.json({
@@ -199,13 +235,19 @@ export async function updateGameflip(req, res) {
         const encryptedApiKey = encrypt(apiKey);
         const encryptedTotpSecret = encrypt(totpSecret);
 
-        db.prepare(`
-            INSERT INTO users (id, username, gameflip_api_key_enc, gameflip_totp_secret_enc)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(id) DO UPDATE SET
-                gameflip_api_key_enc = excluded.gameflip_api_key_enc,
-                gameflip_totp_secret_enc = excluded.gameflip_totp_secret_enc
-        `).run(user.id, user.username, encryptedApiKey, encryptedTotpSecret);
+        const { error: updateErr } = await db
+            .from('users')
+            .upsert({
+                id: user.id,
+                username: user.username,
+                gameflip_api_key_enc: encryptedApiKey,
+                gameflip_totp_secret_enc: encryptedTotpSecret
+            });
+
+        if (updateErr) {
+            console.error('API update gameflip DB error:', updateErr.message);
+            return res.status(500).json({ error: 'Error al vincular cuenta de Gameflip' });
+        }
 
         res.json({
             success: true,
@@ -217,21 +259,29 @@ export async function updateGameflip(req, res) {
     }
 }
 
-export function getUsers(req, res) {
+export async function getUsers(req, res) {
     try {
         const user = req.user;
         if (user.id !== 'admin') {
             return res.status(403).json({ error: 'Access denied.' });
         }
-        const users = db.prepare('SELECT id, username, email, created_at FROM users ORDER BY created_at DESC').all();
-        res.json({ success: true, users });
+        const { data: users, error: fetchErr } = await db
+            .from('users')
+            .select('id, username, email, created_at')
+            .order('created_at', { ascending: false });
+
+        if (fetchErr) {
+            console.error('API get users DB error:', fetchErr.message);
+            return res.status(500).json({ error: 'Error al obtener usuarios' });
+        }
+        res.json({ success: true, users: users || [] });
     } catch (error) {
         console.error('API get users error:', error.message);
         res.status(500).json({ error: 'Error al obtener usuarios' });
     }
 }
 
-export function deleteUser(req, res) {
+export async function deleteUser(req, res) {
     try {
         const currentUser = req.user;
         if (currentUser.id !== 'admin') {
@@ -239,14 +289,15 @@ export function deleteUser(req, res) {
         }
         const { id } = req.params;
 
-        const deleteTx = db.transaction((userId) => {
-            db.prepare('DELETE FROM listings WHERE product_id IN (SELECT id FROM products WHERE user_id =?)').run(userId);
-            db.prepare('DELETE FROM listings WHERE user_id = ?').run(userId);
-            db.prepare('DELETE FROM products WHERE user_id = ?').run(userId);
-            db.prepare('DELETE FROM agent_logs WHERE user_id = ?').run(userId);
-            db.prepare('DELETE FROM users WHERE id = ?').run(userId);
-        });
-        deleteTx(id);
+        await db.from('listings').delete().eq('user_id', id);
+        await db.from('products').delete().eq('user_id', id);
+        await db.from('agent_logs').delete().eq('user_id', id);
+        const { error: deleteErr } = await db.from('users').delete().eq('id', id);
+
+        if (deleteErr) {
+            console.error('API delete user DB error:', deleteErr.message);
+            return res.status(500).json({ error: 'Error al eliminar usuario' });
+        }
 
         res.json({ success: true, message: 'User deleted successfully.' });
     } catch (error) {

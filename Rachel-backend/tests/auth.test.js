@@ -1,4 +1,92 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+const mockUsersTable = new Map();
+
+vi.mock('../config/db.js', () => {
+    const mockDb = {
+        from: (table) => {
+            if (table === 'users') {
+                return {
+                    select: () => ({
+                        eq: (col, val) => ({
+                            maybeSingle: async () => {
+                                for (const u of mockUsersTable.values()) {
+                                    if (u[col] === val) return { data: { ...u }, error: null };
+                                }
+                                return { data: null, error: null };
+                            }
+                        }),
+                        ilike: (col, val) => ({
+                            maybeSingle: async () => {
+                                for (const u of mockUsersTable.values()) {
+                                    if (String(u[col]).toLowerCase() === String(val).toLowerCase()) {
+                                        return { data: { ...u }, error: null };
+                                    }
+                                }
+                                return { data: null, error: null };
+                            },
+                            neq: (col2, val2) => ({
+                                maybeSingle: async () => {
+                                    for (const u of mockUsersTable.values()) {
+                                        if (String(u[col]).toLowerCase() === String(val).toLowerCase() && u[col2] !== val2) {
+                                            return { data: { ...u }, error: null };
+                                        }
+                                    }
+                                    return { data: null, error: null };
+                                }
+                            })
+                        }),
+                        order: () => Promise.resolve({
+                            data: Array.from(mockUsersTable.values()),
+                            error: null
+                        })
+                    }),
+                    insert: async (row) => {
+                        mockUsersTable.set(row.id, { ...row, created_at: new Date().toISOString() });
+                        return { data: row, error: null };
+                    },
+                    update: (updates) => ({
+                        eq: async (col, val) => {
+                            for (const [id, u] of mockUsersTable.entries()) {
+                                if (u[col] === val) {
+                                    mockUsersTable.set(id, { ...u, ...updates });
+                                }
+                            }
+                            return { error: null };
+                        }
+                    }),
+                    delete: () => ({
+                        ilike: async (col, pattern) => {
+                            const prefix = pattern.replace('%', '');
+                            for (const [id, u] of mockUsersTable.entries()) {
+                                if (String(u[col]).startsWith(prefix)) {
+                                    mockUsersTable.delete(id);
+                                }
+                            }
+                            return { error: null };
+                        },
+                        eq: async (col, val) => {
+                            for (const [id, u] of mockUsersTable.entries()) {
+                                if (u[col] === val) {
+                                    mockUsersTable.delete(id);
+                                }
+                            }
+                            return { error: null };
+                        }
+                    })
+                };
+            }
+            return {
+                delete: () => ({ eq: async () => ({ error: null }) })
+            };
+        }
+    };
+    return {
+        default: mockDb,
+        supabase: mockDb
+    };
+});
+
 import db from '../config/db.js';
 import { register, login } from '../controllers/auth.js';
 
@@ -6,8 +94,8 @@ describe('Auth Controller - Registration & Login', () => {
     const testUsername = 'test_reg_user_' + Date.now();
     const testPassword = 'Password123!';
 
-    afterEach(() => {
-        db.prepare('DELETE FROM users WHERE username LIKE ?').run('test_reg_user_%');
+    afterEach(async () => {
+        await db.from('users').delete().ilike('username', 'test_reg_user_%');
     });
 
     it('should register successfully even when process.env.ADMIN_USERNAME is undefined', async () => {
@@ -148,4 +236,3 @@ describe('Auth Controller - Registration & Login', () => {
         expect(resJson.error).toBe('Incorrect username or password');
     });
 });
-

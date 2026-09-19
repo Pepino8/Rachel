@@ -5,10 +5,6 @@ services:
       - "3000:3000"
     env_file:
       - ./Rachel-backend/.env
-    environment:
-      - DATABASE_PATH=/app/data/rachel.db
-    volumes:
-      - ./Rachel-backend/data:/app/data
 
   frontend:
     build:

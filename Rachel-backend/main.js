@@ -15,19 +15,25 @@ dotenv.config();
 
 const app = express();
 
-// Configuración de CORS segura para producción
+// Configuración de CORS segura y flexible para producción y desarrollo
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
     : [];
+
 app.use(cors({
     origin: (origin, callback) => {
+        // Permitir peticiones sin origen (ej. curl, Postman, server-to-server)
         if (!origin) return callback(null, true);
-        if (process.env.NODE_ENV !== 'production') return callback(null, true);
+        // Si estamos en desarrollo o no se especificó lista blanca, permitir
+        if (process.env.NODE_ENV !== 'production' || allowedOrigins.length === 0 || allowedOrigins.includes('*')) {
+            return callback(null, true);
+        }
         if (allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
-        return callback(new Error('Bloqueado por CORS: Origen no autorizado en producción.'));
-    }
+        return callback(new Error(`Bloqueado por CORS: Origen '${origin}' no autorizado en producción.`));
+    },
+    credentials: true
 }));
 
 app.use(express.json({ limit: '10mb' }));

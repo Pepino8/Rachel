@@ -11,9 +11,7 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbPath = process.env.DATABASE_PATH || path.resolve(__dirname, '../rachel.db');
-const dbDir = path.dirname(dbPath);
-const uploadsDir = process.env.UPLOADS_DIR || path.join(dbDir, 'product-images');
+const uploadsDir = process.env.UPLOADS_DIR || path.resolve(__dirname, '../product-images');
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -95,7 +93,7 @@ export function deleteProductImage(imagePath) {
 
 export async function getListingImage(productId) {
     if (productId) {
-        const product = db.prepare('SELECT image_path FROM products WHERE id = ?').get(productId);
+        const { data: product } = await db.from('products').select('image_path').eq('id', productId).maybeSingle();
         if (product?.image_path) {
             if (product.image_path.startsWith('http://') || product.image_path.startsWith('https://')) {
                 try {

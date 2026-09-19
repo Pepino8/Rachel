@@ -3,19 +3,34 @@ import db from '../config/db.js';
 import { GAMEFLIP_API_BASE, getAuthHeaders, getOwnerId, deleteListingSafely } from '../services/gameflip.js';
 import { getListingImage } from '../services/image.js';
 
-// Helpers para registrar actividad del bot en SQLite
-function logAgent(agent, action, detail = null, userId = null) {
-    db.prepare(`
-        INSERT INTO agent_logs (user_id, agent, action, detail)
-        VALUES (?, ?, ?, ?)
-    `).run(userId, agent, action, detail);
+// Helpers para registrar actividad del bot en Supabase
+async function logAgent(agent, action, detail = null, userId = null) {
+    try {
+        await db.from('agent_logs').insert({
+            user_id: userId,
+            agent,
+            action,
+            detail,
+            timestamp: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error('logAgent error:', err.message);
+    }
 }
 
-function saveListing(gameflipId, status, productId = null, userId = null) {
-    db.prepare(`
-        INSERT OR REPLACE INTO listings (id, user_id, product_id, gameflip_id, status)
-        VALUES (?, ?, ?, ?, ?)
-    `).run(gameflipId, userId, productId, gameflipId, status);
+async function saveListing(gameflipId, status, productId = null, userId = null) {
+    try {
+        await db.from('listings').upsert({
+            id: gameflipId,
+            user_id: userId,
+            product_id: productId,
+            gameflip_id: gameflipId,
+            status,
+            posted_at: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error('saveListing error:', err.message);
+    }
 }
 
 export async function createListing(req, res) {
@@ -108,13 +123,13 @@ export async function createListing(req, res) {
             }
         });
 
-        saveListing(listingId, 'onsale', product_id, user?.id);
-        logAgent('post_listings', 'posted', `Listing ${listingId} created: ${name}`, user?.id);
+        await saveListing(listingId, 'onsale', product_id, user?.id);
+        await logAgent('post_listings', 'posted', `Listing ${listingId} created: ${name}`, user?.id);
 
         res.json(patchResponse.data.data);
     } catch (error) {
         console.error('API create listing error:', error.response?.data || error.message);
-        logAgent('post_listings', 'error', error.message, user?.id);
+        await logAgent('post_listings', 'error', error.message, user?.id);
         res.status(error.response?.status || 500).json(error.response?.data || { error: error.message });
     }
 }
@@ -146,11 +161,11 @@ export async function deleteListing(req, res) {
     try {
         const { id } = req.params;
         const result = await deleteListingSafely(id, user);
-        logAgent('post_listings', 'deleted', `Listing ${id} deleted manually`, user?.id);
+        await logAgent('post_listings', 'deleted', `Listing ${id} deleted manually`, user?.id);
         res.json(result);
     } catch (error) {
         console.error('API delete listing error:', error.response?.data || error.message);
-        logAgent('post_listings', 'error', error.message, user?.id);
+        await logAgent('post_listings', 'error', error.message, user?.id);
         res.status(error.response?.status || 500).json(error.response?.data || { error: error.message });
     }
 }
@@ -159,7 +174,7 @@ export async function purgeExpired(req, res) {
     const user = req.user;
     try {
         const ownerId = await getOwnerId(user);
-        logAgent('purge_listings', 'started', 'Purge expired started', user?.id);
+        await logAgent('purge_listings', 'started', 'Purge expired started', user?.id);
 
         const listResponse = await axios.get(`${GAMEFLIP_API_BASE}/listing`, {
             params: {
@@ -183,11 +198,11 @@ export async function purgeExpired(req, res) {
             }
         }
 
-        logAgent('purge_listings', 'completed', `Purged ${purgeCount} expired listings`, user?.id);
+        await logAgent('purge_listings', 'completed', `Purged ${purgeCount} expired listings`, user?.id);
         res.json({ success: true, purged: purgeCount });
     } catch (error) {
         console.error('API purge expired error:', error.response?.data || error.message);
-        logAgent('purge_listings', 'error', error.message, user?.id);
+        await logAgent('purge_listings', 'error', error.message, user?.id);
         res.status(error.response?.status || 500).json(error.response?.data || { error: error.message });
     }
 }
@@ -196,7 +211,7 @@ export async function purgeAll(req, res) {
     const user = req.user;
     try {
         const ownerId = await getOwnerId(user);
-        logAgent('purge_listings', 'started', 'Purge all started', user?.id);
+        await logAgent('purge_listings', 'started', 'Purge all started', user?.id);
 
         const listResponse = await axios.get(`${GAMEFLIP_API_BASE}/listing`, {
             params: {
@@ -220,11 +235,11 @@ export async function purgeAll(req, res) {
             }
         }
 
-        logAgent('purge_listings', 'completed', `Purged all ${purgeCount} listings`, user?.id);
+        await logAgent('purge_listings', 'completed', `Purged all ${purgeCount} listings`, user?.id);
         res.json({ success: true, purged: purgeCount });
     } catch (error) {
         console.error('API purge all error:', error.response?.data || error.message);
-        logAgent('purge_listings', 'error', error.message, user?.id);
+        await logAgent('purge_listings', 'error', error.message, user?.id);
         res.status(error.response?.status || 500).json(error.response?.data || { error: error.message });
     }
 }

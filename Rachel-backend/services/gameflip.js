@@ -82,10 +82,12 @@ export async function getOwnerId(user) {
     }
 }
 
-export function updateListingStatus(gameflipId, status) {
-    db.prepare(`
-        UPDATE listings SET status = ? WHERE gameflip_id = ?
-    `).run(status, gameflipId);
+export async function updateListingStatus(gameflipId, status) {
+    try {
+        await db.from('listings').update({ status }).eq('gameflip_id', gameflipId);
+    } catch (err) {
+        console.error('updateListingStatus error:', err.message);
+    }
 }
 
 export async function deleteListingSafely(id, user) {
@@ -110,7 +112,7 @@ export async function deleteListingSafely(id, user) {
         headers: getAuthHeaders(user)
     });
 
-    updateListingStatus(id, 'deleted');
+    await updateListingStatus(id, 'deleted');
 
     return response.data.data;
 }

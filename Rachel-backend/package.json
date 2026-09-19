@@ -9,9 +9,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "axios": "^1.10.0",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.10.0",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
