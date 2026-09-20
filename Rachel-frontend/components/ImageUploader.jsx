@@ -36,13 +36,13 @@ function ImageUploader({ onImageSelect, initialImageUrl, inputId = "fileInput" }
             <div className="relative border-2 border-dashed border-zinc-800 hover:border-zinc-700 bg-zinc-950 rounded-xl overflow-hidden min-h-[140px] flex flex-col items-center justify-center p-4 transition-colors duration-200">
                 {image ? (
                     <div className="w-full flex flex-col items-center gap-3">
-                        <div className="relative group rounded-lg overflow-hidden h-28 w-28 border border-zinc-800">
+                        <div className="relative group rounded-lg overflow-hidden max-h-48 max-w-full border border-zinc-800 flex items-center justify-center bg-zinc-900/50">
                             <img
                                 src={image}
                                 alt="Preview"
-                                className="w-full h-full object-cover"
+                                className="max-h-48 w-auto max-w-full object-contain rounded-lg"
                             />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
                                 <label
                                     htmlFor={inputId}
                                     className="p-1.5 rounded-lg bg-zinc-900 text-zinc-200 hover:text-white cursor-pointer border border-zinc-700/80 text-xs"

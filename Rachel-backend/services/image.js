@@ -47,7 +47,7 @@ export async function saveProductImage(productId, imageData) {
                 public_id: `rachel-products/${productId}`,
                 overwrite: true,
                 transformation: [
-                    { width: 1000, height: 1000, crop: 'fill', gravity: 'auto' },
+                    { width: 1000, height: 1000, crop: 'limit' },
                     { quality: 'auto:good', fetch_format: 'jpg' }
                 ]
             });
