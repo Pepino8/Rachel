@@ -16,6 +16,11 @@ export async function getCurrentUser(req) {
         if (userId === 'mock') {
             const { data: user } = await db.from('users').select('*').eq('id', 'admin').maybeSingle();
             if (!user) {
+                const { data: primaryUser } = await db.from('users').select('*').limit(1).maybeSingle();
+                if (primaryUser) {
+                    primaryUser.role = 'admin';
+                    return primaryUser;
+                }
                 return { id: 'admin', username: 'admin', role: 'admin' };
             }
             user.role = 'admin';
@@ -30,6 +35,11 @@ export async function getCurrentUser(req) {
         if (decoded.id === 'admin') {
             const { data: user } = await db.from('users').select('*').eq('id', 'admin').maybeSingle();
             if (!user) {
+                const { data: primaryUser } = await db.from('users').select('*').limit(1).maybeSingle();
+                if (primaryUser) {
+                    primaryUser.role = 'admin';
+                    return primaryUser;
+                }
                 return { id: 'admin', username: 'admin', role: 'admin' };
             }
             user.role = 'admin';
