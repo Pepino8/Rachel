@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { rateLimit } from 'express-rate-limit';
 import apiRoutes from './routes/index.js';
 import fs from 'fs';
+import { startAutoPurgeWorker } from './services/autoPurge.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,4 +72,5 @@ app.use((err, _req, res, _next) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Rachel Gameflip proxy server running on http://localhost:${PORT}`);
+    startAutoPurgeWorker();
 });

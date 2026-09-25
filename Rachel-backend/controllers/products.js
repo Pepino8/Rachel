@@ -30,14 +30,28 @@ export async function getProducts(req, res) {
 export async function saveProduct(req, res) {
     try {
         const user = req.user;
-        const { id, name, description, price, category, auto_post, image } = req.body;
+        const { id, name, description, price, category, auto_post, image, game, game_mode, game_category } = req.body;
 
         const imagePath = await saveProductImage(id, image);
+
+        let finalDescription = (description || '').trim();
+        if (game) {
+            const tags = [`Game: ${game}`];
+            if (game === 'Fortnite') {
+                if (game_mode) tags.push(`Mode: ${game_mode}`);
+                if (game_category) tags.push(`Type: ${game_category}`);
+            }
+            const tagHeader = `[${tags.join(' | ')}]`;
+            if (!finalDescription.includes(tagHeader)) {
+                finalDescription = `${tagHeader}\n${finalDescription}`.trim();
+            }
+        }
+
         const { error } = await db.from('products').upsert({
             id,
             user_id: user.id,
             name,
-            description,
+            description: finalDescription,
             price: parseFloat(price),
             category,
             auto_post: auto_post ? 1 : 0,

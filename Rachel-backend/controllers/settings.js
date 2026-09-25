@@ -41,8 +41,13 @@ export async function getSettings(req, res) {
         const userSettings = allSettings[userId] || {
             postInterval: 60000,
             postIntervalUnit: 'minutes',
-            postIntervalValue: 1
+            postIntervalValue: 1,
+            autoPurgeHours: 24
         };
+
+        if (userSettings.autoPurgeHours === undefined) {
+            userSettings.autoPurgeHours = 24;
+        }
 
         return res.json({
             success: true,
@@ -57,25 +62,47 @@ export async function getSettings(req, res) {
 export async function updateSettings(req, res) {
     try {
         const userId = req.user?.id || 'admin';
-        const { postInterval, postIntervalUnit, postIntervalValue } = req.body;
-
-        const intervalNum = Number(postInterval);
-        if (!intervalNum || isNaN(intervalNum) || intervalNum < 10000) {
-            return res.status(400).json({ error: 'Interval must be at least 10,000 ms (10 seconds).' });
-        }
-        if (intervalNum > 86400000) {
-            return res.status(400).json({ error: 'Interval cannot exceed 86,400,000 ms (24 hours).' });
-        }
-
-        const validUnit = ['seconds', 'minutes'].includes(postIntervalUnit) ? postIntervalUnit : (intervalNum % 60000 === 0 ? 'minutes' : 'seconds');
-        const validValue = Number(postIntervalValue) > 0 ? Number(postIntervalValue) : (validUnit === 'minutes' ? intervalNum / 60000 : Math.round(intervalNum / 1000));
+        const { postInterval, postIntervalUnit, postIntervalValue, autoPurgeHours } = req.body;
 
         const allSettings = await readSettingsFile();
+        const currentUserSettings = allSettings[userId] || {
+            postInterval: 60000,
+            postIntervalUnit: 'minutes',
+            postIntervalValue: 1,
+            autoPurgeHours: 24
+        };
+
+        let intervalNum = currentUserSettings.postInterval || 60000;
+        let validUnit = currentUserSettings.postIntervalUnit || 'minutes';
+        let validValue = currentUserSettings.postIntervalValue || 1;
+
+        if (postInterval !== undefined) {
+            intervalNum = Number(postInterval);
+            if (!intervalNum || isNaN(intervalNum) || intervalNum < 10000) {
+                return res.status(400).json({ error: 'Interval must be at least 10,000 ms (10 seconds).' });
+            }
+            if (intervalNum > 86400000) {
+                return res.status(400).json({ error: 'Interval cannot exceed 86,400,000 ms (24 hours).' });
+            }
+
+            validUnit = ['seconds', 'minutes'].includes(postIntervalUnit) ? postIntervalUnit : (intervalNum % 60000 === 0 ? 'minutes' : 'seconds');
+            validValue = Number(postIntervalValue) > 0 ? Number(postIntervalValue) : (validUnit === 'minutes' ? intervalNum / 60000 : Math.round(intervalNum / 1000));
+        }
+
+        let effectiveAutoPurgeHours = currentUserSettings.autoPurgeHours || 24;
+        if (autoPurgeHours !== undefined) {
+            const parsedHours = Number(autoPurgeHours);
+            if (!isNaN(parsedHours) && parsedHours >= 1 && parsedHours <= 168) {
+                effectiveAutoPurgeHours = parsedHours;
+            }
+        }
+
         allSettings[userId] = {
-            ...allSettings[userId],
+            ...currentUserSettings,
             postInterval: intervalNum,
             postIntervalUnit: validUnit,
             postIntervalValue: validValue,
+            autoPurgeHours: effectiveAutoPurgeHours,
             updatedAt: new Date().toISOString()
         };
 

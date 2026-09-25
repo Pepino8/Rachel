@@ -90,29 +90,40 @@ export async function updateListingStatus(gameflipId, status) {
     }
 }
 
-export async function deleteListingSafely(id, user) {
-    try {
-        console.log(`Setting listing ${id} status to draft...`);
-        const patchStatusPayload = [
-            { op: "replace", path: "/status", value: "draft" }
-        ];
-        await axios.patch(`${GAMEFLIP_API_BASE}/listing/${id}`, patchStatusPayload, {
-            headers: {
-                ...getAuthHeaders(user),
-                'Content-Type': 'application/json-patch+json'
-            }
-        });
-        console.log(`Successfully set listing ${id} status to draft.`);
-    } catch (err) {
-        console.warn(`Could not set status to draft for listing ${id}:`, err.response?.data || err.message);
+export async function deleteListingSafely(id, user, currentStatus = null) {
+    if (currentStatus !== 'draft') {
+        try {
+            console.log(`Setting listing ${id} status to draft...`);
+            const patchStatusPayload = [
+                { op: "replace", path: "/status", value: "draft" }
+            ];
+            await axios.patch(`${GAMEFLIP_API_BASE}/listing/${id}`, patchStatusPayload, {
+                headers: {
+                    ...getAuthHeaders(user),
+                    'Content-Type': 'application/json-patch+json'
+                }
+            });
+            console.log(`Successfully set listing ${id} status to draft.`);
+        } catch (err) {
+            console.warn(`Could not set status to draft for listing ${id}:`, err.response?.data || err.message);
+        }
     }
 
     console.log(`Deleting listing ID: ${id}`);
-    const response = await axios.delete(`${GAMEFLIP_API_BASE}/listing/${id}`, {
-        headers: getAuthHeaders(user)
-    });
+    try {
+        const response = await axios.delete(`${GAMEFLIP_API_BASE}/listing/${id}`, {
+            headers: getAuthHeaders(user)
+        });
 
-    await updateListingStatus(id, 'deleted');
+        await updateListingStatus(id, 'deleted');
 
-    return response.data.data;
+        return response.data?.data || null;
+    } catch (delErr) {
+        if (delErr.response?.status === 404) {
+            console.log(`Listing ${id} already deleted on Gameflip, marking as deleted locally.`);
+            await updateListingStatus(id, 'deleted');
+            return null;
+        }
+        throw delErr;
+    }
 }

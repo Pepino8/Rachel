@@ -115,6 +115,20 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
         }
     };
 
+    // Helper to extract game metadata tag: e.g. [Game: Fortnite | Mode: Battle Royale | Type: Weapon]
+    const parseGameMeta = (desc) => {
+        if (!desc) return null;
+        const match = desc.match(/\[Game:\s*([^\]|]+)(?:\|\s*Mode:\s*([^\]|]+))?(?:\|\s*Type:\s*([^\]|]+))?\]/i);
+        if (!match) return null;
+        return {
+            game: match[1]?.trim(),
+            mode: match[2]?.trim(),
+            type: match[3]?.trim()
+        };
+    };
+
+    const gameMeta = parseGameMeta(description);
+
     return (
         <>
             <div className="w-full bg-zinc-950/60 border border-zinc-800/80 hover:border-zinc-700/50 hover:bg-zinc-900/40 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all duration-300">
@@ -135,7 +149,18 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
                         )}
                     </div>
                     <div className="flex flex-col gap-0.5">
-                        <h4 className="text-sm font-semibold text-zinc-100 group-hover:text-emerald-300 transition-colors">{product}</h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-sm font-semibold text-zinc-100 group-hover:text-emerald-300 transition-colors">{product}</h4>
+                            {gameMeta && (
+                                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border ${
+                                    gameMeta.game === 'Fortnite'
+                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                        : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                                }`}>
+                                    🎮 {gameMeta.game} {gameMeta.mode ? `• ${gameMeta.mode}` : ''} {gameMeta.type ? `(${gameMeta.type})` : ''}
+                                </span>
+                            )}
+                        </div>
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-emerald-400 font-medium">{price}</span>
                             <span className="text-zinc-700">•</span>

@@ -53,6 +53,19 @@ function PostListings() {
         };
     }, []);
 
+    // Listen for manual or background purge events to keep dashboard counter in sync
+    useEffect(() => {
+        const handlePurgedEvent = (e) => {
+            if (e.detail?.count) {
+                setPurgedCount(prev => prev + e.detail.count);
+            }
+        };
+        window.addEventListener('listings_purged', handlePurgedEvent);
+        return () => {
+            window.removeEventListener('listings_purged', handlePurgedEvent);
+        };
+    }, []);
+
     useEffect(() => {
         let intervalId;
 
@@ -88,6 +101,18 @@ function PostListings() {
                     setPostedCount(prev => prev + 1);
                 } catch (err) {
                     console.error(`Failed to auto-post product ${prod.name}:`, err.response?.data || err.message);
+                }
+
+                // Periodically remove stale listings older than 24h / expired drafts every 5 posts or initial run
+                if (currentCount % 5 === 0) {
+                    try {
+                        const purgeRes = await axios.post(`${API_URL}/api/purge/expired`);
+                        if (purgeRes.data?.purged > 0) {
+                            setPurgedCount(prev => prev + purgeRes.data.purged);
+                        }
+                    } catch (purgeErr) {
+                        console.warn("Auto-cleanup expired check:", purgeErr.response?.data || purgeErr.message);
+                    }
                 }
             } catch (error) {
                 console.error("Auto-post error:", error.response?.data || error.message);

@@ -2,6 +2,7 @@ import axios from 'axios';
 import db from '../config/db.js';
 import { GAMEFLIP_API_BASE, getAuthHeaders, getOwnerId, deleteListingSafely } from '../services/gameflip.js';
 import { getListingImage } from '../services/image.js';
+import { purgeUserStaleListings } from '../services/autoPurge.js';
 
 // Helpers para registrar actividad del bot en Supabase
 async function logAgent(agent, action, detail = null, userId = null) {
@@ -60,6 +61,16 @@ export async function createListing(req, res) {
             expire_in_days: 365,
             status: 'draft'
         };
+
+        if (description?.includes('Game: Fortnite') || name?.toLowerCase().includes('fortnite')) {
+            payload.upc = 'GFFORTNITE';
+        } else if (description?.includes('Game: Counter-Strike') || name?.toLowerCase().includes('csgo') || name?.toLowerCase().includes('cs2')) {
+            payload.upc = 'GFCSGO';
+        } else if (description?.includes('Game: Roblox') || name?.toLowerCase().includes('roblox')) {
+            payload.upc = 'GFROBLOX';
+        } else if (description?.includes('Game: Rocket League') || name?.toLowerCase().includes('rocket league')) {
+            payload.upc = 'GFROCKETLEAGUE';
+        }
 
         console.log('Posting new listing to Gameflip (as draft):', payload);
         const response = await axios.post(`${GAMEFLIP_API_BASE}/listing`, payload, {
@@ -173,33 +184,9 @@ export async function deleteListing(req, res) {
 export async function purgeExpired(req, res) {
     const user = req.user;
     try {
-        const ownerId = await getOwnerId(user);
-        await logAgent('purge_listings', 'started', 'Purge expired started', user?.id);
-
-        const listResponse = await axios.get(`${GAMEFLIP_API_BASE}/listing`, {
-            params: {
-                owner: ownerId,
-                status: 'draft,ready',
-                limit: 50
-            },
-            headers: getAuthHeaders(user)
-        });
-
-        const listings = listResponse.data.data || [];
-        console.log(`Found ${listings.length} draft/expired listings to purge.`);
-
-        let purgeCount = 0;
-        for (const item of listings) {
-            try {
-                await deleteListingSafely(item.id, user);
-                purgeCount++;
-            } catch (err) {
-                console.error(`Failed to delete listing ${item.id}:`, err.message);
-            }
-        }
-
-        await logAgent('purge_listings', 'completed', `Purged ${purgeCount} expired listings`, user?.id);
-        res.json({ success: true, purged: purgeCount });
+        const maxAgeHours = Number(req.body?.maxAgeHours) || 24;
+        const result = await purgeUserStaleListings(user, maxAgeHours, 'manual');
+        res.json(result);
     } catch (error) {
         console.error('API purge expired error:', error.response?.data || error.message);
         await logAgent('purge_listings', 'error', error.message, user?.id);
@@ -222,14 +209,39 @@ export async function purgeAll(req, res) {
             headers: getAuthHeaders(user)
         });
 
-        const listings = listResponse.data.data || [];
+        let expiredResData = [];
+        try {
+            const expRes = await axios.get(`${GAMEFLIP_API_BASE}/listing`, {
+                params: {
+                    owner: ownerId,
+                    status: 'draft,ready,onsale,expired,timeout',
+                    expiration: ',now',
+                    limit: 100
+                },
+                headers: getAuthHeaders(user)
+            });
+            expiredResData = expRes.data?.data || [];
+        } catch (expErr) {
+            console.warn('Gameflip expiration query in purgeAll notice:', expErr.message);
+        }
+
+        const listingsMap = new Map();
+        for (const item of (listResponse.data?.data || [])) {
+            listingsMap.set(item.id, item);
+        }
+        for (const item of expiredResData) {
+            listingsMap.set(item.id, item);
+        }
+
+        const listings = Array.from(listingsMap.values()).filter(item => item.status !== 'sold' && item.status !== 'sale_pending');
         console.log(`Found ${listings.length} listings to purge all.`);
 
         let purgeCount = 0;
         for (const item of listings) {
             try {
-                await deleteListingSafely(item.id, user);
+                await deleteListingSafely(item.id, user, item.status);
                 purgeCount++;
+                await new Promise(r => setTimeout(r, 120));
             } catch (err) {
                 console.error(`Failed to delete listing ${item.id}:`, err.message);
             }

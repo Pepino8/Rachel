@@ -54,7 +54,10 @@ export const saveProductSchema = z.object({
     price: z.number().nonnegative('El precio debe ser un número mayor o igual a cero'),
     category: z.string().min(1, 'La categoría es requerida'),
     auto_post: z.boolean().optional(),
-    image: z.string().min(1, 'La imagen en base64 es requerida')
+    image: z.string().min(1, 'La imagen en base64 es requerida'),
+    game: z.string().optional().nullable(),
+    game_mode: z.string().optional().nullable(),
+    game_category: z.string().optional().nullable()
 });
 
 export const updateProductSchema = z.object({
@@ -63,7 +66,10 @@ export const updateProductSchema = z.object({
     price: z.number().nonnegative().optional(),
     category: z.string().optional(),
     auto_post: z.boolean().optional(),
-    image: z.string().optional()
+    image: z.string().optional(),
+    game: z.string().optional().nullable(),
+    game_mode: z.string().optional().nullable(),
+    game_category: z.string().optional().nullable()
 });
 
 export const createListingSchema = z.object({

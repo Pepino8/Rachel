@@ -803,6 +803,48 @@ function Settings({ onProfileUpdated }) {
                     </form>
                 </div>
 
+                {/* 24-HOUR AUTO-PURGE MAINTENANCE CARD */}
+                <div className="bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md rounded-2xl p-6 shadow-xl shadow-black/20 w-full transition-all duration-300">
+                    <div className="flex items-center justify-between border-b border-zinc-800/60 pb-4 mb-4">
+                        <div>
+                            <h2 className="font-bold text-lg text-zinc-100 tracking-tight flex items-center gap-2">
+                                <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                24-Hour Listing Auto-Purge
+                            </h2>
+                            <p className="text-xs text-zinc-500 mt-0.5">Autonomous background inventory maintenance</p>
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Active (24h)
+                        </span>
+                    </div>
+
+                    <div className="space-y-4">
+                        <p className="text-sm text-zinc-400 leading-relaxed">
+                            Rachel runs an automated background agent every 15 minutes. Any listing that has been published for <span className="text-amber-400 font-semibold">24 hours or more</span> is automatically removed from Gameflip to prevent stale posts and free up marketplace inventory space.
+                        </p>
+
+                        <div className="bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+                                    <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-zinc-500 block">Expiration Rule</span>
+                                    <span className="text-sm font-semibold text-zinc-200">24 Hours Max Listing Lifetime</span>
+                                </div>
+                            </div>
+                            <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg text-center">
+                                Background Daemon Running
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
                 {isAdmin && (
                     /* ADMIN USERS LIST SECTION */
                     <div className="bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md rounded-2xl p-6 shadow-xl shadow-black/20 w-full transition-all duration-300">
