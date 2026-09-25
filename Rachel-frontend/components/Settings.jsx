@@ -2,6 +2,24 @@ import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { API_URL } from '../src/config';
 
+const SPEED_PRESETS = [
+    { label: '30s', value: 30, unit: 'seconds', ms: 30000, tag: 'Turbo' },
+    { label: '1m', value: 1, unit: 'minutes', ms: 60000, tag: 'Standard' },
+    { label: '2m', value: 2, unit: 'minutes', ms: 120000, tag: 'Balanced' },
+    { label: '5m', value: 5, unit: 'minutes', ms: 300000, tag: 'Relaxed' },
+    { label: '10m', value: 10, unit: 'minutes', ms: 600000, tag: 'Safe' },
+    { label: '15m', value: 15, unit: 'minutes', ms: 900000, tag: 'Extended' }
+];
+
+const formatReadableInterval = (ms) => {
+    const sec = Math.round(ms / 1000);
+    if (sec < 60) return `${sec}s`;
+    if (sec === 60) return '1 min';
+    const mins = sec / 60;
+    if (Number.isInteger(mins)) return `${mins} mins`;
+    return `${mins.toFixed(1)} mins (${sec}s)`;
+};
+
 function Settings({ onProfileUpdated }) {
     const [user, setUser] = useState(null);
     const [isEditingGameflip, setIsEditingGameflip] = useState(false);
@@ -27,6 +45,13 @@ function Settings({ onProfileUpdated }) {
     const [accountSuccess, setAccountSuccess] = useState('');
     const [accountError, setAccountError] = useState('');
 
+    // Auto-Post Interval Settings
+    const [postInterval, setPostInterval] = useState(60000);
+    const [postValue, setPostValue] = useState(1);
+    const [postUnit, setPostUnit] = useState('minutes');
+    const [postSpeedSuccess, setPostSpeedSuccess] = useState('');
+    const [postSpeedError, setPostSpeedError] = useState('');
+    const [isSavingSpeed, setIsSavingSpeed] = useState(false);
     const [isLoadingGameflip, setIsLoadingGameflip] = useState(false);
     const [isLoadingAccount, setIsLoadingAccount] = useState(false);
 
@@ -49,6 +74,54 @@ function Settings({ onProfileUpdated }) {
         }
     }, []);
 
+    const fetchSettings = useCallback(async () => {
+        // 1. Initial read from localStorage for instant render
+        const localInterval = localStorage.getItem('rachel_autopost_interval');
+        const localUnit = localStorage.getItem('rachel_autopost_unit') || 'minutes';
+        const localValue = localStorage.getItem('rachel_autopost_value');
+
+        if (localInterval) {
+            const ms = parseInt(localInterval, 10);
+            if (!isNaN(ms) && ms >= 10000) {
+                setPostInterval(ms);
+                if (localValue) {
+                    setPostValue(Number(localValue));
+                    setPostUnit(localUnit);
+                } else if (ms % 60000 === 0) {
+                    setPostValue(ms / 60000);
+                    setPostUnit('minutes');
+                } else {
+                    setPostValue(Math.round(ms / 1000));
+                    setPostUnit('seconds');
+                }
+            }
+        }
+
+        // 2. Fetch and sync with backend API
+        try {
+            const token = localStorage.getItem('rachel_token');
+            if (token) {
+                const res = await axios.get(`${API_URL}/api/settings`, {
+                    headers: { Authorization: token }
+                });
+                if (res.data?.success && res.data?.settings?.postInterval) {
+                    const { postInterval: sInterval, postIntervalUnit: sUnit, postIntervalValue: sValue } = res.data.settings;
+                    setPostInterval(sInterval);
+                    const determinedUnit = sUnit || (sInterval % 60000 === 0 ? 'minutes' : 'seconds');
+                    const determinedValue = sValue || (determinedUnit === 'minutes' ? sInterval / 60000 : Math.round(sInterval / 1000));
+                    setPostUnit(determinedUnit);
+                    setPostValue(determinedValue);
+
+                    localStorage.setItem('rachel_autopost_interval', sInterval.toString());
+                    localStorage.setItem('rachel_autopost_unit', determinedUnit);
+                    localStorage.setItem('rachel_autopost_value', determinedValue.toString());
+                }
+            }
+        } catch (err) {
+            // Silently fallback to localStorage values
+        }
+    }, []);
+
     const fetchProfile = useCallback(async () => {
         try {
             const token = localStorage.getItem('rachel_token');
@@ -68,7 +141,8 @@ function Settings({ onProfileUpdated }) {
 
     useEffect(() => {
         fetchProfile();
-    }, [fetchProfile]);
+        fetchSettings();
+    }, [fetchProfile, fetchSettings]);
 
 
     const handleDeleteUser = async (userId) => {
@@ -164,6 +238,107 @@ function Settings({ onProfileUpdated }) {
         } finally {
             setIsLoadingAccount(false);
         }
+    };
+
+    const applyPreset = (preset) => {
+        setPostValue(preset.value);
+        setPostUnit(preset.unit);
+        setPostInterval(preset.ms);
+        setPostSpeedError('');
+        setPostSpeedSuccess('');
+    };
+
+    const handleValueChange = (e) => {
+        const val = e.target.value;
+        setPostValue(val);
+        const num = Number(val);
+        if (!isNaN(num) && num > 0) {
+            const ms = postUnit === 'minutes' ? Math.round(num * 60000) : Math.round(num * 1000);
+            setPostInterval(ms);
+        }
+        setPostSpeedError('');
+    };
+
+    const handleUnitChange = (newUnit) => {
+        setPostUnit(newUnit);
+        const num = Number(postValue);
+        if (!isNaN(num) && num > 0) {
+            const ms = newUnit === 'minutes' ? Math.round(num * 60000) : Math.round(num * 1000);
+            setPostInterval(ms);
+        }
+    };
+
+    const handleSavePostSpeed = async (e) => {
+        if (e) e.preventDefault();
+        setPostSpeedSuccess('');
+        setPostSpeedError('');
+
+        const num = Number(postValue);
+        if (!num || isNaN(num) || num <= 0) {
+            setPostSpeedError('Please enter a valid positive number.');
+            return;
+        }
+
+        const calculatedMs = postUnit === 'minutes' ? Math.round(num * 60000) : Math.round(num * 1000);
+
+        if (calculatedMs < 10000) {
+            setPostSpeedError('Minimum interval is 10 seconds to protect your Gameflip account.');
+            return;
+        }
+        if (calculatedMs > 86400000) {
+            setPostSpeedError('Maximum interval is 24 hours (1440 minutes).');
+            return;
+        }
+
+        setIsSavingSpeed(true);
+
+        try {
+            // Save to local storage
+            localStorage.setItem('rachel_autopost_interval', calculatedMs.toString());
+            localStorage.setItem('rachel_autopost_unit', postUnit);
+            localStorage.setItem('rachel_autopost_value', num.toString());
+
+            // Dispatch global event for instant reactivity in other components
+            window.dispatchEvent(new CustomEvent('autopost_interval_changed', {
+                detail: {
+                    interval: calculatedMs,
+                    unit: postUnit,
+                    value: num
+                }
+            }));
+
+            // Sync with backend API
+            try {
+                const token = localStorage.getItem('rachel_token');
+                if (token) {
+                    await axios.post(`${API_URL}/api/settings`, {
+                        postInterval: calculatedMs,
+                        postIntervalUnit: postUnit,
+                        postIntervalValue: num
+                    }, {
+                        headers: { Authorization: token }
+                    });
+                }
+            } catch (backendErr) {
+                console.warn('Backend sync note:', backendErr.response?.data || backendErr.message);
+            }
+
+            setPostInterval(calculatedMs);
+            setPostSpeedSuccess(`Posting interval saved! Rachel will post every ${formatReadableInterval(calculatedMs)}.`);
+            setTimeout(() => setPostSpeedSuccess(''), 5000);
+        } catch (err) {
+            setPostSpeedError('Could not save posting speed settings.');
+        } finally {
+            setIsSavingSpeed(false);
+        }
+    };
+
+    const handleResetDefaultSpeed = () => {
+        setPostValue(1);
+        setPostUnit('minutes');
+        setPostInterval(60000);
+        setPostSpeedError('');
+        setPostSpeedSuccess('');
     };
 
     if (!user) {
@@ -394,7 +569,241 @@ function Settings({ onProfileUpdated }) {
 
             {/* RIGHT COLUMN: Admin Users or Session Info */}
             <div className="w-full lg:w-1/2 max-w-lg flex flex-col gap-6">
-                {isAdmin ? (
+                {!isAdmin && (
+                    /* User Info Panel (visible to regular users) */
+                    <div className="bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md rounded-2xl p-6 shadow-xl shadow-black/20 w-full transition-all duration-300">
+                        <div className="border-b border-zinc-800/60 pb-4 mb-4">
+                            <h2 className="font-bold text-lg text-zinc-100 tracking-tight">Active Session</h2>
+                            <p className="text-xs text-zinc-500 mt-0.5">Your console credentials profile</p>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                            {/* Username row item */}
+                            <div className="w-full bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-4 flex items-center justify-between gap-4 transition-all duration-300">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 flex-shrink-0">
+                                        <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-xs text-zinc-500">Username</span>
+                                        <span className="text-sm font-semibold text-zinc-200 mt-0.5">{user.username}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Gameflip Link row item */}
+                            <div className="w-full bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-4 flex items-center justify-between gap-4 transition-all duration-300">
+                                <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 flex-shrink-0">
+                                        <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-xs text-zinc-500">Gameflip API</span>
+                                        <span className="text-sm font-semibold text-zinc-200 mt-0.5">Link Status</span>
+                                    </div>
+                                </div>
+                                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${user.hasGameflipLinked
+                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                        : 'bg-zinc-800/80 text-zinc-400 border border-zinc-700/50'
+                                    }`}>
+                                    {user.hasGameflipLinked ? 'Linked' : 'Not Linked'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* AUTO-POST SPEED & FREQUENCY CARD */}
+                <div className="bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md rounded-2xl p-6 shadow-xl shadow-black/20 w-full transition-all duration-300">
+                    <div className="flex items-center justify-between border-b border-zinc-800/60 pb-4 mb-4">
+                        <div>
+                            <h2 className="font-bold text-lg text-zinc-100 tracking-tight flex items-center gap-2">
+                                <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Auto-Post Speed
+                            </h2>
+                            <p className="text-xs text-zinc-500 mt-0.5">Control how fast Rachel publishes new listings</p>
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Every {formatReadableInterval(postInterval)}
+                        </span>
+                    </div>
+
+                    <form onSubmit={handleSavePostSpeed} className="space-y-5">
+                        {postSpeedError && (
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-400 flex items-center gap-2 animate-in fade-in duration-200">
+                                <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                                <span>{postSpeedError}</span>
+                            </div>
+                        )}
+
+                        {postSpeedSuccess && (
+                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 text-sm text-emerald-400 flex items-center gap-2 animate-in fade-in duration-200">
+                                <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>{postSpeedSuccess}</span>
+                            </div>
+                        )}
+
+                        {/* Quick Presets */}
+                        <div className="space-y-2">
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                                Quick Presets
+                            </label>
+                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                {SPEED_PRESETS.map((preset) => {
+                                    const isSelected = postInterval === preset.ms && postUnit === preset.unit && Number(postValue) === preset.value;
+                                    return (
+                                        <button
+                                            key={preset.label}
+                                            type="button"
+                                            onClick={() => applyPreset(preset)}
+                                            className={`flex flex-col items-center justify-center p-2.5 rounded-xl border text-center transition-all duration-200 cursor-pointer ${
+                                                isSelected
+                                                    ? 'bg-emerald-500/15 border-emerald-500 text-emerald-300 shadow-sm shadow-emerald-500/20 ring-1 ring-emerald-500/30'
+                                                    : 'bg-zinc-950/60 border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/60 text-zinc-300'
+                                            }`}
+                                        >
+                                            <span className="text-sm font-bold tracking-tight">{preset.label}</span>
+                                            <span className={`text-[10px] mt-0.5 ${isSelected ? 'text-emerald-400 font-medium' : 'text-zinc-500'}`}>
+                                                {preset.tag}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Custom Interval Input */}
+                        <div className="space-y-2 pt-2 border-t border-zinc-800/40">
+                            <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                                Custom Interval
+                            </label>
+                            <p className="text-xs text-zinc-500 leading-relaxed">
+                                Set the exact time the bot waits before publishing each listing from your active products inventory.
+                            </p>
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        value={postValue}
+                                        onChange={handleValueChange}
+                                        placeholder="e.g. 60"
+                                        className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:border-emerald-500/50 rounded-xl text-sm font-semibold text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200"
+                                    />
+                                </div>
+                                <div className="flex bg-zinc-950 p-1 border border-zinc-800 rounded-xl">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleUnitChange('seconds')}
+                                        className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${
+                                            postUnit === 'seconds'
+                                                ? 'bg-zinc-800 text-emerald-400 shadow-sm'
+                                                : 'text-zinc-400 hover:text-zinc-200'
+                                        }`}
+                                    >
+                                        Seconds
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleUnitChange('minutes')}
+                                        className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 cursor-pointer ${
+                                            postUnit === 'minutes'
+                                                ? 'bg-zinc-800 text-emerald-400 shadow-sm'
+                                                : 'text-zinc-400 hover:text-zinc-200'
+                                        }`}
+                                    >
+                                        Minutes
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Live Impact & Estimation Box */}
+                        <div className="bg-zinc-950/70 border border-zinc-800/80 rounded-xl p-3.5 space-y-2">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-zinc-400 flex items-center gap-1.5">
+                                    <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                    Estimated Posting Rate:
+                                </span>
+                                <span className="font-bold text-zinc-200">
+                                    ~{Math.round((3600 / Math.max(1, Math.round(postInterval / 1000))) * 10) / 10} posts / hour
+                                </span>
+                            </div>
+
+                            {/* Dynamic Status / Warning Indicator */}
+                            {Math.round(postInterval / 1000) < 30 ? (
+                                <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1.5 rounded-lg">
+                                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <span>High speed: Intervals under 30s may hit Gameflip API rate limits.</span>
+                                </div>
+                            ) : Math.round(postInterval / 1000) <= 300 ? (
+                                <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
+                                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span>Recommended: Good balance between marketplace visibility and API limits.</span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 text-xs text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2.5 py-1.5 rounded-lg">
+                                    <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span>Conservative: Ideal for smaller inventories or avoiding rapid relisting.</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-between pt-2">
+                            <button
+                                type="button"
+                                onClick={handleResetDefaultSpeed}
+                                className="text-xs font-semibold text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                            >
+                                Reset to Default (1m)
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isSavingSpeed}
+                                className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-zinc-950 font-bold px-5 py-2.5 rounded-xl text-sm transition-all duration-200 cursor-pointer flex items-center gap-1.5 shadow-lg shadow-emerald-500/10 hover:shadow-emerald-500/20"
+                            >
+                                {isSavingSpeed ? (
+                                    <>
+                                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Saving...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Save Auto-Post Speed
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                {isAdmin && (
                     /* ADMIN USERS LIST SECTION */
                     <div className="bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md rounded-2xl p-6 shadow-xl shadow-black/20 w-full transition-all duration-300">
                         <div className="border-b border-zinc-800/60 pb-4 mb-4">
@@ -462,51 +871,6 @@ function Settings({ onProfileUpdated }) {
                                 ))}
                             </div>
                         )}
-                    </div>
-                ) : (
-                    /* User Info Panel (visible to regular users) */
-                    <div className="bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md rounded-2xl p-6 shadow-xl shadow-black/20 w-full transition-all duration-300">
-                        <div className="border-b border-zinc-800/60 pb-4 mb-4">
-                            <h2 className="font-bold text-lg text-zinc-100 tracking-tight">Active Session</h2>
-                            <p className="text-xs text-zinc-500 mt-0.5">Your console credentials profile</p>
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            {/* Username row item */}
-                            <div className="w-full bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-4 flex items-center justify-between gap-4 transition-all duration-300">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-9 w-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 flex-shrink-0">
-                                        <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-xs text-zinc-500">Username</span>
-                                        <span className="text-sm font-semibold text-zinc-200 mt-0.5">{user.username}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Gameflip Link row item */}
-                            <div className="w-full bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-4 flex items-center justify-between gap-4 transition-all duration-300">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-9 w-9 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 flex-shrink-0">
-                                        <svg className="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                                        </svg>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-xs text-zinc-500">Gameflip API</span>
-                                        <span className="text-sm font-semibold text-zinc-200 mt-0.5">Link Status</span>
-                                    </div>
-                                </div>
-                                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${user.hasGameflipLinked
-                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                        : 'bg-zinc-800/80 text-zinc-400 border border-zinc-700/50'
-                                    }`}>
-                                    {user.hasGameflipLinked ? 'Linked' : 'Not Linked'}
-                                </span>
-                            </div>
-                        </div>
                     </div>
                 )}
             </div>

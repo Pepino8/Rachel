@@ -3,6 +3,7 @@ import authRoutes from './auth.js';
 import listingsRoutes from './listings.js';
 import productsRoutes from './products.js';
 import historyRoutes from './history.js';
+import settingsRoutes from './settings.js';
 
 const router = express.Router();
 
@@ -11,5 +12,6 @@ router.use('/auth', authRoutes);
 router.use('/', listingsRoutes); // Monta /listings, /purge/expired, /purge/all
 router.use('/', productsRoutes); // Monta /db/products, /db/products/:id/image, etc.
 router.use('/', historyRoutes);  // Monta /db/listings, /db/logs
+router.use('/', settingsRoutes); // Monta /settings
 
 export default router;

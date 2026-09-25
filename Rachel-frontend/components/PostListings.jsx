@@ -7,10 +7,51 @@ function PostListings() {
     const [postedCount, setPostedCount] = useState(0);
     const [purgedCount, setPurgedCount] = useState(0);
 
+    // Dynamic posting interval (in ms), defaults to 60000 (1 min) if not customized
+    const [postIntervalMs, setPostIntervalMs] = useState(() => {
+        const saved = localStorage.getItem('rachel_autopost_interval');
+        const num = saved ? parseInt(saved, 10) : 60000;
+        return !isNaN(num) && num >= 10000 ? num : 60000;
+    });
+
     const postedCountRef = useRef(postedCount);
     useEffect(() => {
         postedCountRef.current = postedCount;
     }, [postedCount]);
+
+    // Listen for posting interval changes from Settings or other components
+    useEffect(() => {
+        const handleIntervalChange = (e) => {
+            if (e.detail?.interval) {
+                setPostIntervalMs(e.detail.interval);
+            }
+        };
+
+        window.addEventListener('autopost_interval_changed', handleIntervalChange);
+
+        // Also fetch from backend settings if available
+        const fetchRemoteInterval = async () => {
+            try {
+                const token = localStorage.getItem('rachel_token');
+                if (token) {
+                    const res = await axios.get(`${API_URL}/api/settings`, {
+                        headers: { Authorization: token }
+                    });
+                    if (res.data?.success && res.data?.settings?.postInterval) {
+                        setPostIntervalMs(res.data.settings.postInterval);
+                    }
+                }
+            } catch (err) {
+                // Silently fallback to current postIntervalMs
+            }
+        };
+
+        fetchRemoteInterval();
+
+        return () => {
+            window.removeEventListener('autopost_interval_changed', handleIntervalChange);
+        };
+    }, []);
 
     useEffect(() => {
         let intervalId;
@@ -57,14 +98,32 @@ function PostListings() {
             // Run once immediately
             performAutoPost();
             
-            // Set interval to post every 60 seconds
-            intervalId = setInterval(performAutoPost, 60000);
+            // Set interval according to user-configured speed
+            intervalId = setInterval(performAutoPost, postIntervalMs);
         }
 
         return () => {
             if (intervalId) clearInterval(intervalId);
         };
-    }, [isPressed]);
+    }, [isPressed, postIntervalMs]);
+
+    const formatIntervalDesc = (ms) => {
+        const secs = Math.round(ms / 1000);
+        if (secs < 60) return `${secs} seconds`;
+        if (secs === 60) return 'minute';
+        const mins = secs / 60;
+        if (Number.isInteger(mins)) return `${mins} minutes`;
+        return `${mins.toFixed(1)} minutes (${secs}s)`;
+    };
+
+    const formatIntervalBadge = (ms) => {
+        const secs = Math.round(ms / 1000);
+        if (secs < 60) return `${secs}s`;
+        if (secs === 60) return '1m';
+        const mins = secs / 60;
+        if (Number.isInteger(mins)) return `${mins}m`;
+        return `${mins.toFixed(1)}m`;
+    };
 
     return (
         <div className="bg-zinc-900/40 border border-zinc-800/80 backdrop-blur-md rounded-2xl p-6 shadow-xl shadow-black/20 w-full transition-all duration-300">
@@ -74,24 +133,32 @@ function PostListings() {
                     <h2 className="font-bold text-lg text-zinc-100 tracking-tight">Post Listings</h2>
                     <p className="text-xs text-zinc-500 mt-0.5">Automated marketplace agent</p>
                 </div>
-                {isPressed ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        Active
+                <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-800/80 text-zinc-400 border border-zinc-700/50" title="Configured in Settings">
+                        <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {formatIntervalBadge(postIntervalMs)}
                     </span>
-                ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-800/80 text-zinc-400 border border-zinc-700/50">
-                        <span className="h-1.5 w-1.5 rounded-full bg-zinc-500"></span>
-                        Idle
-                    </span>
-                )}
+                    {isPressed ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Active
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-zinc-800/80 text-zinc-400 border border-zinc-700/50">
+                            <span className="h-1.5 w-1.5 rounded-full bg-zinc-500"></span>
+                            Idle
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Description */}
             <p className="text-sm text-zinc-400 leading-relaxed">
                 {isPressed 
-                    ? "Creating a new listing every minute and removing listings older than 1 day." 
-                    : "Creates a new listing every minute and removes listings older than 1 day."}
+                    ? `Creating a new listing every ${formatIntervalDesc(postIntervalMs)} and removing listings older than 1 day.` 
+                    : `Creates a new listing every ${formatIntervalDesc(postIntervalMs)} and removes listings older than 1 day.`}
             </p>   
 
             {/* Stats Dashboard */}
