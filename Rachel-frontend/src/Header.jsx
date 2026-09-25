@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import GameflipOnlineStatus from '../components/GameflipOnlineStatus';
 
 function Header({ onLogout, currentTab, setCurrentTab }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -17,7 +18,9 @@ function Header({ onLogout, currentTab, setCurrentTab }) {
                 </div>
 
                 {/* Desktop Navigation */}
-                <nav className="hidden md:flex items-center gap-6">
+                <div className="hidden md:flex items-center gap-5">
+                    <GameflipOnlineStatus variant="header" />
+                    <nav className="flex items-center gap-6">
                     <button
                         onClick={() => setCurrentTab('dashboard')}
                         className={`text-sm font-medium px-3 py-1.5 rounded-md transition-all duration-200 cursor-pointer ${
@@ -47,10 +50,12 @@ function Header({ onLogout, currentTab, setCurrentTab }) {
                         </svg>
                         Log Out
                     </button>
-                </nav>
+                    </nav>
+                </div>
 
                 {/* Mobile Menu Button */}
-                <div className="flex md:hidden">
+                <div className="flex md:hidden items-center gap-3">
+                    <GameflipOnlineStatus variant="header" />
                     <button
                         onClick={() => setIsOpen(!isOpen)}
                         type="button"
