@@ -11,7 +11,7 @@ export function validateBody(schema) {
                     field: err.path.join('.'),
                     message: err.message
                 }));
-                return res.status(400).json({ error: 'Validación de datos fallida', details: formattedErrors });
+                return res.status(400).json({ error: 'Data validation failed', details: formattedErrors });
             }
             next(error);
         }
@@ -19,42 +19,42 @@ export function validateBody(schema) {
 }
 
 export const loginSchema = z.object({
-    username: z.string().min(1, 'El nombre de usuario es requerido'),
-    password: z.string().min(1, 'La contraseña es requerida')
+    username: z.string().min(1, 'Username is required'),
+    password: z.string().min(1, 'Password is required')
 });
 
 export const registerSchema = z.object({
-    username: z.string().min(3, 'El nombre de usuario debe tener al menos 3 caracteres'),
-    password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres')
+    username: z.string().min(3, 'Username must be at least 3 characters'),
+    password: z.string().min(6, 'Password must be at least 6 characters')
 });
 
 export const updateProfileSchema = z.object({
-    username: z.string().min(3, 'El nombre de usuario debe tener al menos 3 caracteres').optional(),
-    password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').optional(),
-    confirmPassword: z.string().min(6, 'La confirmación debe tener al menos 6 caracteres').optional()
+    username: z.string().min(3, 'Username must be at least 3 characters').optional(),
+    password: z.string().min(6, 'Password must be at least 6 characters').optional(),
+    confirmPassword: z.string().min(6, 'Confirmation must be at least 6 characters').optional()
 }).refine(data => {
     if (data.password && data.password !== data.confirmPassword) {
         return false;
     }
     return true;
 }, {
-    message: 'Las contraseñas no coinciden',
+    message: 'Passwords do not match',
     path: ['confirmPassword']
 });
 
 export const linkGameflipSchema = z.object({
-    apiKey: z.string().min(1, 'La clave de API de Gameflip es requerida'),
-    totpSecret: z.string().min(1, 'El secreto TOTP es requerido')
+    apiKey: z.string().min(1, 'Gameflip API key is required'),
+    totpSecret: z.string().min(1, 'TOTP secret is required')
 });
 
 export const saveProductSchema = z.object({
     id: z.string().min(1),
-    name: z.string().min(1, 'El nombre del producto es requerido'),
+    name: z.string().min(1, 'Product name is required'),
     description: z.string().optional().nullable(),
-    price: z.number().nonnegative('El precio debe ser un número mayor o igual a cero'),
-    category: z.string().min(1, 'La categoría es requerida'),
+    price: z.number().nonnegative('Price must be a number greater than or equal to zero'),
+    category: z.string().min(1, 'Category is required'),
     auto_post: z.boolean().optional(),
-    image: z.string().min(1, 'La imagen en base64 es requerida'),
+    image: z.string().min(1, 'Base64 image is required'),
     game: z.string().optional().nullable(),
     game_mode: z.string().optional().nullable(),
     game_category: z.string().optional().nullable()
@@ -73,11 +73,11 @@ export const updateProductSchema = z.object({
 });
 
 export const createListingSchema = z.object({
-    name: z.string().min(1, 'El nombre del listado es requerido'),
+    name: z.string().min(1, 'Listing name is required'),
     description: z.string().optional().nullable(),
     price: z.union([z.string(), z.number()]),
-    category: z.string().min(1, 'La categoría es requerida'),
-    product_id: z.string().min(1, 'El ID de producto es requerido')
+    category: z.string().min(1, 'Category is required'),
+    product_id: z.string().min(1, 'Product ID is required')
 });
 
 export const importProductSchema = z.object({

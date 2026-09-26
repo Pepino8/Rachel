@@ -11,12 +11,12 @@ export async function getListingsHistory(req, res) {
 
         if (error) {
             console.error('DB fetch listings error:', error.message);
-            return res.status(500).json({ error: 'Error al obtener historial de listados' });
+            return res.status(500).json({ error: 'Failed to fetch listings history' });
         }
         res.json(listings || []);
     } catch (error) {
         console.error('DB fetch listings error:', error.message);
-        res.status(500).json({ error: 'Error al obtener historial de listados' });
+        res.status(500).json({ error: 'Failed to fetch listings history' });
     }
 }
 
@@ -33,11 +33,11 @@ export async function getLogs(req, res) {
 
         if (error) {
             console.error('DB fetch logs error:', error.message);
-            return res.status(500).json({ error: 'Error al obtener registros del agente' });
+            return res.status(500).json({ error: 'Failed to fetch agent logs' });
         }
         res.json(logs || []);
     } catch (error) {
         console.error('DB fetch logs error:', error.message);
-        res.status(500).json({ error: 'Error al obtener registros del agente' });
+        res.status(500).json({ error: 'Failed to fetch agent logs' });
     }
 }

@@ -27,7 +27,7 @@ export async function getGameflipStatus(req, res) {
         console.error('Error fetching Gameflip status:', err.response?.data || err.message);
         return res.status(err.response?.status || 500).json({
             success: false,
-            error: err.response?.data?.error?.message || err.message || 'Error al obtener estado de Gameflip'
+            error: err.response?.data?.error?.message || err.message || 'Failed to get Gameflip status'
         });
     }
 }
@@ -75,8 +75,8 @@ export async function setGameflipOnline(req, res) {
                 avatar: profile.avatar || null,
                 requiresMobileAction: !patchSucceeded && isOnline,
                 message: !isOnline
-                    ? 'Tu cuenta ahora aparece como Desconectada.'
-                    : 'Para aparecer desconectado en Gameflip, apaga el interruptor "Online" en la app móvil oficial, o espera a que expire tu tiempo actual.'
+                    ? 'Your account now appears as Offline.'
+                    : 'To appear offline on Gameflip, turn off the "Online" switch in the official mobile app, or wait for your current session to expire.'
             });
         }
 
@@ -112,14 +112,14 @@ export async function setGameflipOnline(req, res) {
             avatar: profile.avatar || null,
             requiresMobileActivation: !isOnline,
             message: isOnline
-                ? '¡Tu cuenta está Online en Gameflip!'
-                : 'Gameflip requiere activar el interruptor "Online" desde la aplicación móvil oficial (iOS/Android) una vez para otorgar la insignia verde. En cuanto lo actives en la app, se reflejará aquí inmediatamente.'
+                ? 'Your account is Online on Gameflip!'
+                : 'Gameflip requires turning on the "Online" switch from the official mobile app (iOS/Android) once to grant the green badge. As soon as you turn it on in the app, it will be reflected here immediately.'
         });
     } catch (err) {
         console.error('Error in setGameflipOnline:', err.response?.data || err.message);
         return res.status(err.response?.status || 500).json({
             success: false,
-            error: err.response?.data?.error?.message || err.message || 'Error al conectar con Gameflip'
+            error: err.response?.data?.error?.message || err.message || 'Failed to connect to Gameflip'
         });
     }
 }

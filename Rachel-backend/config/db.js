@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
-// Polyfill global WebSocket para entornos Node < 22 donde WebSocket nativo no está disponible
+// Global WebSocket polyfill for Node < 22 environments where native WebSocket is unavailable
 if (typeof globalThis.WebSocket === 'undefined') {
     globalThis.WebSocket = WebSocket;
 }
@@ -19,7 +19,7 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-    console.warn('⚠️ Advertencia: SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY no están definidos en el archivo .env.');
+    console.warn('⚠️ Warning: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not defined in the .env file.');
 }
 
 export const supabase = createClient(

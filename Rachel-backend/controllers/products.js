@@ -18,12 +18,12 @@ export async function getProducts(req, res) {
         const { data: products, error } = await query;
         if (error) {
             console.error('DB fetch products error:', error.message);
-            return res.status(500).json({ error: 'Error al obtener inventario' });
+            return res.status(500).json({ error: 'Failed to fetch inventory' });
         }
         res.json(products || []);
     } catch (error) {
         console.error('DB fetch products error:', error.message);
-        res.status(500).json({ error: 'Error al obtener inventario' });
+        res.status(500).json({ error: 'Failed to fetch inventory' });
     }
 }
 
@@ -61,13 +61,13 @@ export async function saveProduct(req, res) {
 
         if (error) {
             console.error('DB save product error:', error.message);
-            return res.status(500).json({ error: 'Error al guardar producto' });
+            return res.status(500).json({ error: 'Failed to save product' });
         }
 
         res.json({ success: true, image_path: imagePath });
     } catch (error) {
         console.error('DB save product error:', error.message);
-        res.status(500).json({ error: 'Error al guardar producto' });
+        res.status(500).json({ error: 'Failed to save product' });
     }
 }
 
@@ -97,7 +97,7 @@ export async function getProductImage(req, res) {
         res.sendFile(filePath);
     } catch (error) {
         console.error('DB fetch product image error:', error.message);
-        res.status(500).json({ error: 'Error al obtener imagen' });
+        res.status(500).json({ error: 'Failed to get product image' });
     }
 }
 
@@ -126,7 +126,7 @@ export async function deleteProduct(req, res) {
         res.json({ success: true });
     } catch (error) {
         console.error('DB delete product error:', error.message);
-        res.status(500).json({ error: 'Error al eliminar producto' });
+        res.status(500).json({ error: 'Failed to delete product' });
     }
 }
 
@@ -170,13 +170,13 @@ export async function updateProduct(req, res) {
 
         if (updateErr) {
             console.error('DB update product error:', updateErr.message);
-            return res.status(500).json({ error: 'Error al actualizar producto' });
+            return res.status(500).json({ error: 'Failed to update product' });
         }
 
         res.json({ success: true, image_path: imagePath });
     } catch (error) {
         console.error('DB update product error:', error.message);
-        res.status(500).json({ error: 'Error al actualizar producto' });
+        res.status(500).json({ error: 'Failed to update product' });
     }
 }
 
@@ -198,13 +198,13 @@ export async function toggleAutoPost(req, res) {
 
         if (error) {
             console.error('DB update auto_post error:', error.message);
-            return res.status(500).json({ error: 'Error al actualizar estado auto-post' });
+            return res.status(500).json({ error: 'Failed to update auto-post status' });
         }
 
         res.json({ success: true });
     } catch (error) {
         console.error('DB update auto_post error:', error.message);
-        res.status(500).json({ error: 'Error al actualizar estado auto-post' });
+        res.status(500).json({ error: 'Failed to update auto-post status' });
     }
 }
 
@@ -305,7 +305,7 @@ export async function importProduct(req, res) {
 
         if (insertErr) {
             console.error('importProduct DB insert error:', insertErr.message);
-            return res.status(500).json({ error: 'Error al registrar producto importado' });
+            return res.status(500).json({ error: 'Failed to register imported product' });
         }
 
         res.json({
