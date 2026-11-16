@@ -57,7 +57,8 @@ export const saveProductSchema = z.object({
     image: z.string().min(1, 'Base64 image is required'),
     game: z.string().optional().nullable(),
     game_mode: z.string().optional().nullable(),
-    game_category: z.string().optional().nullable()
+    game_category: z.string().optional().nullable(),
+    shipping_within_days: z.coerce.number().int().min(1, 'Delivery time must be at least 1 day').max(3, 'Delivery time cannot exceed 3 days').optional()
 });
 
 export const updateProductSchema = z.object({
@@ -69,7 +70,8 @@ export const updateProductSchema = z.object({
     image: z.string().optional(),
     game: z.string().optional().nullable(),
     game_mode: z.string().optional().nullable(),
-    game_category: z.string().optional().nullable()
+    game_category: z.string().optional().nullable(),
+    shipping_within_days: z.coerce.number().int().min(1, 'Delivery time must be at least 1 day').max(3, 'Delivery time cannot exceed 3 days').optional()
 });
 
 export const createListingSchema = z.object({

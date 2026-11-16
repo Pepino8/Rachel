@@ -110,9 +110,13 @@ A lightweight, fast API server acting as a secure proxy between your control pan
 The system uses a Supabase PostgreSQL database with the following tables:
 
 1. **`users`**: Stores local profiles and encrypted Gameflip credentials.
-2. **`products`**: Your local inventory catalog used as templates for automation.
+2. **`products`**: Your local inventory catalog used as templates for automation (`id`, `user_id`, `name`, `description`, `price`, `category`, `auto_post`, `image_path`, `shipping_within_days` [1 to 3 days delivery], `created_at`, `updated_at`).
 3. **`listings`**: Keeps track of active or completed listings on the marketplace mapped to local products.
 4. **`agent_logs`**: Logs detailed events and errors executed by the auto-posting and purge agents.
+
+### 🔄 Supabase Migrations
+SQL scripts for Supabase are located in `Rachel-backend/migrations/`:
+* `01_add_shipping_within_days.sql`: Adds `shipping_within_days` with a check constraint (between 1 and 3 days). Run in the Supabase SQL Editor.
 
 ---
 

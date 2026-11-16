@@ -38,13 +38,28 @@ export async function createListing(req, res) {
     const user = req.user;
     try {
         const ownerId = await getOwnerId(user);
-        const { name, description, price, category, product_id } = req.body;
+        const { name, description, price, category, product_id, shipping_within_days } = req.body;
 
         const priceInCents = Math.round(parseFloat(price) * 100);
 
         let gfCategory = 'DIGITAL_INGAME';
         if (category === 'video-dvd') gfCategory = 'DIGITAL_INGAME';
         else if (category === 'giftcard') gfCategory = 'GIFTCARD';
+
+        let deliveryDays = parseInt(shipping_within_days, 10);
+        if (isNaN(deliveryDays) || deliveryDays < 1 || deliveryDays > 3) {
+            if (product_id) {
+                try {
+                    const { data: prodData } = await db.from('products').select('shipping_within_days').eq('id', product_id).maybeSingle();
+                    deliveryDays = prodData?.shipping_within_days || 1;
+                } catch (e) {
+                    deliveryDays = 1;
+                }
+            } else {
+                deliveryDays = 1;
+            }
+        }
+        if (deliveryDays < 1 || deliveryDays > 3) deliveryDays = 1;
 
         const payload = {
             owner: ownerId,
@@ -57,7 +72,7 @@ export async function createListing(req, res) {
             digital: true,
             digital_deliverable: 'transfer',
             shipping_prepaid: false,
-            shipping_within_days: 1,
+            shipping_within_days: deliveryDays,
             expire_in_days: 365,
             status: 'draft'
         };
