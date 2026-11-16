@@ -3,11 +3,11 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { encrypt, decrypt } from '../services/gameflip.js';
 
-describe('Pruebas de Seguridad y Criptografía', () => {
+describe('Security and Cryptography Tests', () => {
     
-    describe('Hasheo de Contraseñas (Bcrypt)', () => {
-        it('debe hashear una contraseña y verificarla correctamente', () => {
-            const password = 'miContrasenaSuperSecreta';
+    describe('Password Hashing (Bcrypt)', () => {
+        it('should hash a password and verify it correctly', () => {
+            const password = 'mySuperSecretPassword123';
             const hash = bcrypt.hashSync(password, 10);
             
             expect(hash).not.toBe(password);
@@ -16,19 +16,19 @@ describe('Pruebas de Seguridad y Criptografía', () => {
             const matches = bcrypt.compareSync(password, hash);
             expect(matches).toBe(true);
             
-            const wrongMatches = bcrypt.compareSync('contrasenaIncorrecta', hash);
+            const wrongMatches = bcrypt.compareSync('wrongPassword', hash);
             expect(wrongMatches).toBe(false);
         });
     });
 
-    describe('Manejo de Sesiones (JWT)', () => {
-        it('debe firmar y verificar tokens JWT correctamente', () => {
-            const secret = 'secreto-de-prueba-jwt-123456';
+    describe('Session Management (JWT)', () => {
+        it('should sign and verify JWT tokens correctly', () => {
+            const secret = 'jwt-test-secret-key-123456';
             const payload = { id: 'admin-id', role: 'admin' };
             const token = jwt.sign(payload, secret, { expiresIn: '1h' });
             
             expect(token).toBeDefined();
-            expect(token.split('.').length).toBe(3); // formato cabecera.payload.firma
+            expect(token.split('.').length).toBe(3); // header.payload.signature format
             
             const decoded = jwt.verify(token, secret);
             expect(decoded.id).toBe(payload.id);
@@ -36,8 +36,8 @@ describe('Pruebas de Seguridad y Criptografía', () => {
         });
     });
 
-    describe('Cifrado Simétrico AES-256-GCM (Gameflip Keys)', () => {
-        it('debe cifrar texto y descifrarlo de vuelta a su valor original', () => {
+    describe('Symmetric AES-256-GCM Encryption (Gameflip Keys)', () => {
+        it('should encrypt text and decrypt it back to its original value', () => {
             const apiKey = 'gf-api-key-test-abcde-12345';
             const encrypted = encrypt(apiKey);
             
@@ -49,8 +49,8 @@ describe('Pruebas de Seguridad y Criptografía', () => {
             expect(decrypted).toBe(apiKey);
         });
 
-        it('debe retornar el texto plano si el formato no es cifrado (soporte legacy)', () => {
-            const legacyUnencryptedKey = 'clave-antigua-sin-cifrar-en-db';
+        it('should return plain text if the format is unencrypted (legacy support)', () => {
+            const legacyUnencryptedKey = 'old-unencrypted-key-in-db';
             const decrypted = decrypt(legacyUnencryptedKey);
             expect(decrypted).toBe(legacyUnencryptedKey);
         });

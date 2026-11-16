@@ -41,7 +41,7 @@ export async function login(req, res) {
 
         if (fetchErr) {
             console.error('API login DB error:', fetchErr.message);
-            return res.status(500).json({ error: 'Error interno al iniciar sesión' });
+            return res.status(500).json({ error: 'Internal login error' });
         }
 
         if (user) {
@@ -80,7 +80,7 @@ export async function login(req, res) {
         res.status(401).json({ error: 'Incorrect username or password' });
     } catch (error) {
         console.error('API login error:', error.message);
-        res.status(500).json({ error: 'Error interno al iniciar sesión' });
+        res.status(500).json({ error: 'Internal login error' });
     }
 }
 
@@ -113,7 +113,7 @@ export async function register(req, res) {
 
         if (insertErr) {
             console.error('API register insert error:', insertErr.message);
-            return res.status(500).json({ error: 'Error interno al registrar usuario' });
+            return res.status(500).json({ error: 'Internal error registering user' });
         }
 
         const token = jwt.sign(
@@ -133,7 +133,7 @@ export async function register(req, res) {
         });
     } catch (error) {
         console.error('API register error:', error.message);
-        res.status(500).json({ error: 'Error interno al registrar usuario' });
+        res.status(500).json({ error: 'Internal error registering user' });
     }
 }
 
@@ -152,7 +152,7 @@ export function getMe(req, res) {
         });
     } catch (error) {
         console.error('API me error:', error.message);
-        res.status(500).json({ error: 'Error al obtener perfil' });
+        res.status(500).json({ error: 'Failed to get profile' });
     }
 }
 
@@ -196,7 +196,7 @@ export async function updateProfile(req, res) {
             const { error: updateErr } = await db.from('users').update(updates).eq('id', user.id);
             if (updateErr) {
                 console.error('API update profile DB error:', updateErr.message);
-                return res.status(500).json({ error: 'Error al actualizar perfil' });
+                return res.status(500).json({ error: 'Failed to update profile' });
             }
         }
 
@@ -210,7 +210,7 @@ export async function updateProfile(req, res) {
         });
     } catch (error) {
         console.error('API update profile error:', error.message);
-        res.status(500).json({ error: 'Error al actualizar perfil' });
+        res.status(500).json({ error: 'Failed to update profile' });
     }
 }
 
@@ -246,7 +246,7 @@ export async function updateGameflip(req, res) {
 
         if (updateErr) {
             console.error('API update gameflip DB error:', updateErr.message);
-            return res.status(500).json({ error: 'Error al vincular cuenta de Gameflip' });
+            return res.status(500).json({ error: 'Failed to link Gameflip account' });
         }
 
         res.json({
@@ -255,7 +255,7 @@ export async function updateGameflip(req, res) {
         });
     } catch (error) {
         console.error('API update gameflip error:', error.message);
-        res.status(500).json({ error: 'Error al vincular cuenta de Gameflip' });
+        res.status(500).json({ error: 'Failed to link Gameflip account' });
     }
 }
 
@@ -272,12 +272,12 @@ export async function getUsers(req, res) {
 
         if (fetchErr) {
             console.error('API get users DB error:', fetchErr.message);
-            return res.status(500).json({ error: 'Error al obtener usuarios' });
+            return res.status(500).json({ error: 'Failed to get users' });
         }
         res.json({ success: true, users: users || [] });
     } catch (error) {
         console.error('API get users error:', error.message);
-        res.status(500).json({ error: 'Error al obtener usuarios' });
+        res.status(500).json({ error: 'Failed to get users' });
     }
 }
 
@@ -296,13 +296,13 @@ export async function deleteUser(req, res) {
 
         if (deleteErr) {
             console.error('API delete user DB error:', deleteErr.message);
-            return res.status(500).json({ error: 'Error al eliminar usuario' });
+            return res.status(500).json({ error: 'Failed to delete user' });
         }
 
         res.json({ success: true, message: 'User deleted successfully.' });
     } catch (error) {
         console.error('API delete user error:', error.message);
-        res.status(500).json({ error: 'Error al eliminar usuario' });
+        res.status(500).json({ error: 'Failed to delete user' });
     }
 }
 

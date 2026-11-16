@@ -4,7 +4,7 @@ import { GAMEFLIP_API_BASE, getAuthHeaders, getOwnerId, deleteListingSafely } fr
 import { getListingImage } from '../services/image.js';
 import { purgeUserStaleListings } from '../services/autoPurge.js';
 
-// Helpers para registrar actividad del bot en Supabase
+// Helpers to log bot activity in Supabase
 async function logAgent(agent, action, detail = null, userId = null) {
     try {
         await db.from('agent_logs').insert({

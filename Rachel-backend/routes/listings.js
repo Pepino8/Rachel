@@ -7,12 +7,12 @@ const router = express.Router();
 
 router.use(requireAuth);
 
-// Endpoints de listados de Gameflip
+// Gameflip listing endpoints
 router.post('/listings', validateBody(createListingSchema), createListing);
 router.get('/listings', getListings);
 router.delete('/listings/:id', deleteListing);
 
-// Endpoints de purga de listados de Gameflip
+// Gameflip listing purge endpoints
 router.post('/purge/expired', purgeExpired);
 router.post('/purge/all', purgeAll);
 

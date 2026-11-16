@@ -6,7 +6,7 @@ const router = express.Router();
 
 router.use(requireAuth);
 
-// Endpoints de logs e historial en la base de datos local
+// Local database logs and history endpoints
 router.get('/db/listings', getListingsHistory);
 router.get('/db/logs', getLogs);
 

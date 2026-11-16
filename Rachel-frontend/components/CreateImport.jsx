@@ -9,7 +9,7 @@ function CreateImport({ onProductCreated }) {
     const [create, setCreate] = useState(false);
 
     // Form States
-    const [nombre, setNombre] = useState('');
+    const [name, setName] = useState('');
     const [desc, setDesc] = useState('');
     const [price, setPrice] = useState('');
     const [autopost, setAutopost] = useState('yes');
@@ -37,7 +37,7 @@ function CreateImport({ onProductCreated }) {
     });
 
     const resetForm = () => {
-        setNombre('');
+        setName('');
         setDesc('');
         setPrice('');
         setAutopost('yes');
@@ -60,7 +60,7 @@ function CreateImport({ onProductCreated }) {
 
         setIsLoading(true);
         console.log('Sending product creation request with payload:', {
-            nombre,
+            name,
             desc,
             price,
             category,
@@ -82,7 +82,7 @@ function CreateImport({ onProductCreated }) {
             // 1. Save product to local DB
             await axios.post(`${API_URL}/api/db/products`, {
                 id: productId,
-                name: nombre,
+                name,
                 description: desc,
                 price: parseFloat(price),
                 category: category,
@@ -380,15 +380,15 @@ function CreateImport({ onProductCreated }) {
                         <div className="p-6 space-y-4">
                             {/* Product Name */}
                             <div>
-                                <label htmlFor="nombre" className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+                                <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
                                     Name
                                 </label>
                                 <input
                                     type="text"
-                                    id="nombre"
-                                    name="nombre"
-                                    value={nombre}
-                                    onChange={(e) => setNombre(e.target.value)}
+                                    id="name"
+                                    name="name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
                                     required
                                     placeholder="Enter product name"
                                     className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:border-emerald-500/50 rounded-lg text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200"

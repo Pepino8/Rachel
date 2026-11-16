@@ -31,9 +31,9 @@ function GameflipOnlineStatus({ variant = 'compact' }) {
                 }
                 if (!silent) {
                     if (res.data.isOnline) {
-                        showToast('¡Estado actualizado! Tu cuenta está Online en Gameflip.', 'success');
+                        showToast('Status updated! Your account is Online on Gameflip.', 'success');
                     } else {
-                        showToast('Estado comprobado: Tu cuenta está Offline en Gameflip.', 'info');
+                        showToast('Status checked: Your account is Offline on Gameflip.', 'info');
                     }
                 }
             }
@@ -42,7 +42,7 @@ function GameflipOnlineStatus({ variant = 'compact' }) {
         } finally {
             if (!silent) setIsLoading(false);
         }
-    }, []);
+    }, [showToast]);
 
     useEffect(() => {
         fetchStatus(true);
@@ -68,7 +68,7 @@ function GameflipOnlineStatus({ variant = 'compact' }) {
 
 
     const formatRemainingTime = (totalSecs) => {
-        if (totalSecs <= 0) return 'Expirado';
+        if (totalSecs <= 0) return 'Expired';
         const hours = Math.floor(totalSecs / 3600);
         const mins = Math.floor((totalSecs % 3600) / 60);
         if (hours > 0) {
@@ -91,7 +91,7 @@ function GameflipOnlineStatus({ variant = 'compact' }) {
                             ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 shadow-sm shadow-emerald-500/10'
                             : 'bg-zinc-900 text-zinc-400 border-zinc-700/60 hover:text-zinc-200 hover:border-zinc-600'
                     }`}
-                    title="Ver detalles de presencia en Gameflip"
+                    title="View presence status on Gameflip"
                 >
                     <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
                     <span className="hidden sm:inline">Gameflip:</span>
@@ -123,7 +123,7 @@ function GameflipOnlineStatus({ variant = 'compact' }) {
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                                 </svg>
                             </div>
-                            <span className="font-bold text-base text-zinc-100">Estado de Presencia en Gameflip</span>
+                            <span className="font-bold text-base text-zinc-100">Gameflip Presence Status</span>
                         </div>
                         <button
                             type="button"
@@ -153,7 +153,7 @@ function GameflipOnlineStatus({ variant = 'compact' }) {
                             )}
                             <div className="flex-1 min-w-0">
                                 <h4 className="text-sm font-bold text-zinc-100 truncate">
-                                    {statusData?.displayName || 'Vendedor Gameflip'}
+                                    {statusData?.displayName || 'Gameflip Seller'}
                                 </h4>
                                 <div className="flex items-center gap-2 mt-0.5">
                                     <span
@@ -168,7 +168,7 @@ function GameflipOnlineStatus({ variant = 'compact' }) {
                                     </span>
                                     {isOnline && (
                                         <span className="text-xs text-zinc-400">
-                                            Quedan {formatRemainingTime(remainingSeconds)}
+                                            {formatRemainingTime(remainingSeconds)} remaining
                                         </span>
                                     )}
                                 </div>
@@ -182,16 +182,16 @@ function GameflipOnlineStatus({ variant = 'compact' }) {
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                                     </svg>
-                                    Tu tienda aparece como ONLINE en Gameflip
+                                    Your store appears as ONLINE on Gameflip
                                 </p>
                                 <p className="text-zinc-400">
-                                    Tus listados tienen mayor visibilidad en las búsquedas con el filtro &quot;Online&quot;. Tu sesión actual vence aproximadamente a las{' '}
+                                    Your listings get higher visibility in searches with the &quot;Online&quot; filter. Your current session expires approximately at{' '}
                                     <strong className="text-zinc-200">
                                         {statusData?.onlineUntil ? new Date(statusData.onlineUntil).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                                     </strong>.
                                 </p>
                                 <p className="text-zinc-400 border-t border-emerald-500/20 pt-2">
-                                    Para cambiar tu estado a desconectado, apaga el interruptor &quot;Online&quot; desde la aplicación móvil oficial de Gameflip.
+                                    To change your status to offline, turn off the &quot;Online&quot; switch in the official Gameflip mobile app.
                                 </p>
                             </div>
                         ) : (
@@ -200,21 +200,21 @@ function GameflipOnlineStatus({ variant = 'compact' }) {
                                     <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                     </svg>
-                                    <span>¿Cómo activar la insignia verde &quot;Online&quot;?</span>
+                                    <span>How to activate the green &quot;Online&quot; badge?</span>
                                 </div>
                                 <p className="leading-relaxed">
-                                    Por políticas de seguridad y prevención de bots de Gameflip, el interruptor para aparecer como <strong>Online</strong> debe activarse directamente desde la <strong>aplicación móvil oficial de Gameflip</strong> (iOS o Android).
+                                    Due to Gameflip&apos;s security policies and bot prevention, the toggle to appear as <strong>Online</strong> must be turned on directly from the <strong>official Gameflip mobile app</strong> (iOS or Android).
                                 </p>
                                 <div className="bg-zinc-900/80 p-3 rounded-lg border border-zinc-800 space-y-1.5 text-zinc-300">
-                                    <p className="font-semibold text-zinc-200">Pasos rápidos:</p>
+                                    <p className="font-semibold text-zinc-200">Quick steps:</p>
                                     <ol className="list-decimal list-inside space-y-1 text-zinc-400">
-                                        <li>Abre la app de Gameflip en tu teléfono.</li>
-                                        <li>Toca el menú lateral superior izquierdo.</li>
-                                        <li>Activa el interruptor <strong>Online</strong> y elige la duración deseada.</li>
+                                        <li>Open the Gameflip app on your phone.</li>
+                                        <li>Tap the top-left side menu.</li>
+                                        <li>Toggle the <strong>Online</strong> switch and choose your desired duration.</li>
                                     </ol>
                                 </div>
                                 <p className="text-zinc-500">
-                                    En cuanto lo actives en tu teléfono, haz clic en el botón de abajo para verificar y ver tu cuenta Online aquí en tiempo real.
+                                    Once activated on your phone, click the button below to verify and see your account Online here in real time.
                                 </p>
                             </div>
                         )}
@@ -227,7 +227,7 @@ function GameflipOnlineStatus({ variant = 'compact' }) {
                             onClick={() => setShowModal(false)}
                             className="px-4 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 bg-zinc-800/40 hover:bg-zinc-800 rounded-lg border border-zinc-700/60 transition-colors cursor-pointer"
                         >
-                            Cerrar
+                            Close
                         </button>
                         <button
                             type="button"
@@ -241,14 +241,14 @@ function GameflipOnlineStatus({ variant = 'compact' }) {
                                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                                     </svg>
-                                    <span>Comprobando...</span>
+                                    <span>Checking...</span>
                                 </>
                             ) : (
                                 <>
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                     </svg>
-                                    <span>Comprobar Estado</span>
+                                    <span>Check Status</span>
                                 </>
                             )}
                         </button>

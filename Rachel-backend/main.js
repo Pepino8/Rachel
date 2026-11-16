@@ -16,43 +16,43 @@ dotenv.config();
 
 const app = express();
 
-// Configuración de CORS segura y flexible para producción y desarrollo
+// Secure and flexible CORS configuration for production and development
 const allowedOrigins = process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()).filter(Boolean)
     : [];
 
 app.use(cors({
     origin: (origin, callback) => {
-        // Permitir peticiones sin origen (ej. curl, Postman, server-to-server)
+        // Allow requests with no origin (e.g. curl, Postman, server-to-server)
         if (!origin) return callback(null, true);
-        // Si estamos en desarrollo o no se especificó lista blanca, permitir
+        // If in development or no whitelist specified, allow
         if (process.env.NODE_ENV !== 'production' || allowedOrigins.length === 0 || allowedOrigins.includes('*')) {
             return callback(null, true);
         }
         if (allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
-        return callback(new Error(`Bloqueado por CORS: Origen '${origin}' no autorizado en producción.`));
+        return callback(new Error(`Blocked by CORS: Origin '${origin}' not authorized in production.`));
     },
     credentials: true
 }));
 
 app.use(express.json({ limit: '10mb' }));
 
-// Limitador de tasa para endpoints de la API
+// Rate limiter for API endpoints
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    limit: 100, // Límite de 100 peticiones por IP en el lapso de tiempo
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    limit: 100, // Limit of 100 requests per IP per window
     standardHeaders: 'draft-8',
     legacyHeaders: false,
-    message: { error: 'Demasiadas peticiones desde esta dirección IP, por favor intente más tarde.' }
+    message: { error: 'Too many requests from this IP address, please try again later.' }
 });
 app.use('/api', limiter);
 
-// Montaje de las rutas agrupadas bajo el prefijo /api
+// Mount routes grouped under /api prefix
 app.use('/api', apiRoutes);
 
-// Servir frontend estático en producción (Docker / Despliegue en contenedor único)
+// Serve static frontend in production (Docker / single container deployment)
 const staticDir = process.env.STATIC_DIR || path.resolve(__dirname, 'public');
 if (fs.existsSync(staticDir)) {
     app.use(express.static(staticDir));
@@ -61,14 +61,14 @@ if (fs.existsSync(staticDir)) {
     });
 }
 
-// Middleware centralizado para captura de errores
+// Centralized error handling middleware
 app.use((err, _req, res, _next) => {
     console.error('Unhandled server error:', err.message);
     const status = err.status || 500;
-    res.status(status).json({ error: err.message || 'Error interno del servidor' });
+    res.status(status).json({ error: err.message || 'Internal server error' });
 });
 
-// Inicialización del servidor
+// Server initialization
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Rachel Gameflip proxy server running on http://localhost:${PORT}`);

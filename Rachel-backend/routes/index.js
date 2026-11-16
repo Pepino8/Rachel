@@ -8,12 +8,12 @@ import gameflipRoutes from './gameflip.js';
 
 const router = express.Router();
 
-// Registro de submódulos de rutas en el router principal
+// Register route submodules on main router
 router.use('/auth', authRoutes);
-router.use('/', listingsRoutes); // Monta /listings, /purge/expired, /purge/all
-router.use('/', productsRoutes); // Monta /db/products, /db/products/:id/image, etc.
-router.use('/', historyRoutes);  // Monta /db/listings, /db/logs
-router.use('/', settingsRoutes); // Monta /settings
-router.use('/', gameflipRoutes); // Monta /gameflip/status, /gameflip/online
+router.use('/', listingsRoutes); // Mounts /listings, /purge/expired, /purge/all
+router.use('/', productsRoutes); // Mounts /db/products, /db/products/:id/image, etc.
+router.use('/', historyRoutes);  // Mounts /db/listings, /db/logs
+router.use('/', settingsRoutes); // Mounts /settings
+router.use('/', gameflipRoutes); // Mounts /gameflip/status, /gameflip/online
 
 export default router;
