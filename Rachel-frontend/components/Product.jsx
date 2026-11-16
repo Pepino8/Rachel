@@ -5,7 +5,7 @@ import Switch from '@mui/material/Switch';
 import ProductEditModal from './ProductEditModal';
 import { useToast } from '../src/useToast';
 
-function Product({ id, product, description, category, price, rawPrice, autoPost, imageUrl, isReal, onDelete, onPost }) {
+function Product({ id, product, description, category, price, rawPrice, autoPost, shippingWithinDays = 1, imageUrl, imageUrls = [], isReal, onDelete, onPost }) {
     const { showToast } = useToast();
     const label = { inputProps: { 'aria-label': 'Switch demo' } };
     const [isDeleting, setIsDeleting] = useState(false);
@@ -139,13 +139,18 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
                     disabled={!isReal}
                     className="flex items-center gap-3 text-left cursor-pointer disabled:cursor-default group"
                 >
-                    <div className="h-10 w-10 rounded-lg bg-zinc-900 border border-zinc-800 group-hover:border-zinc-700 flex items-center justify-center flex-shrink-0 text-zinc-500 overflow-hidden transition-colors">
+                    <div className="relative h-10 w-10 rounded-lg bg-zinc-900 border border-zinc-800 group-hover:border-zinc-700 flex items-center justify-center flex-shrink-0 text-zinc-500 overflow-hidden transition-colors">
                         {imageUrl ? (
                             <img src={imageUrl} alt={product} className="w-full h-full object-contain" />
                         ) : (
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                             </svg>
+                        )}
+                        {imageUrls && imageUrls.length > 1 && (
+                            <span className="absolute bottom-0 right-0 bg-black/85 text-[8px] font-bold text-emerald-400 px-1 py-0.5 rounded-tl leading-none">
+                                {imageUrls.length}
+                            </span>
                         )}
                     </div>
                     <div className="flex flex-col gap-0.5">
@@ -165,6 +170,18 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
                             <span className="text-xs text-emerald-400 font-medium">{price}</span>
                             <span className="text-zinc-700">•</span>
                             {getCategoryBadge(category)}
+                            <span className="text-zinc-700">•</span>
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20" title={`Delivery time: ${shippingWithinDays || 1} day${(shippingWithinDays || 1) > 1 ? 's' : ''}`}>
+                                ⏱️ {shippingWithinDays || 1}d
+                            </span>
+                            {imageUrls && imageUrls.length > 1 && (
+                                <>
+                                    <span className="text-zinc-700">•</span>
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-300 border border-zinc-700/60" title={`${imageUrls.length} images`}>
+                                        🖼️ {imageUrls.length}
+                                    </span>
+                                </>
+                            )}
                         </div>
                     </div>
                 </button>
@@ -225,7 +242,9 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
                         category,
                         rawPrice,
                         autoPost: autoPostState,
-                        imageUrl: imageUrl ? `${imageUrl}?t=${Date.now()}` : null
+                        shippingWithinDays: shippingWithinDays || 1,
+                        imageUrl: imageUrl ? `${imageUrl}?t=${Date.now()}` : null,
+                        imageUrls: Array.isArray(imageUrls) && imageUrls.length > 0 ? imageUrls : (imageUrl ? [imageUrl] : [])
                     }}
                     onClose={() => setShowEditModal(false)}
                     onSaved={() => {

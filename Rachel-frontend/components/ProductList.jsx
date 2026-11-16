@@ -17,19 +17,29 @@ function ProductList({ refreshTrigger }) {
             console.log("products fetched successfully:", response.data);
             
             if (response.data && Array.isArray(response.data)) {
-                const mapped = response.data.map(item => ({
-                    id: item.id,
-                    name: item.name || 'Unnamed product',
-                    description: item.description || '',
-                    category: item.category || 'unknown',
-                    price: `$${parseFloat(item.price || 0).toFixed(2)}`,
-                    rawPrice: item.price,
-                    autoPost: item.auto_post === 1 || item.auto_post === true,
-                    imageUrl: item.image_path 
-                        ? (item.image_path.startsWith('http') ? item.image_path : `${API_URL}/api/db/products/${item.id}/image`)
-                        : null,
-                    isReal: true
-                }));
+                const mapped = response.data.map(item => {
+                    const paths = Array.isArray(item.image_paths) && item.image_paths.length > 0
+                        ? item.image_paths
+                        : (item.image_path ? [item.image_path] : []);
+
+                    const mappedImageUrls = paths.map(p =>
+                        p.startsWith('http') ? p : `${API_URL}/api/db/products/${item.id}/image`
+                    );
+
+                    return {
+                        id: item.id,
+                        name: item.name || 'Unnamed product',
+                        description: item.description || '',
+                        category: item.category || 'unknown',
+                        price: `$${parseFloat(item.price || 0).toFixed(2)}`,
+                        rawPrice: item.price,
+                        autoPost: item.auto_post === 1 || item.auto_post === true,
+                        shippingWithinDays: item.shipping_within_days || 1,
+                        imageUrl: mappedImageUrls[0] || null,
+                        imageUrls: mappedImageUrls,
+                        isReal: true
+                    };
+                });
                 setProducts(mapped);
             }
         } catch (error) {
@@ -91,7 +101,9 @@ function ProductList({ refreshTrigger }) {
                             price={p.price}
                             rawPrice={p.rawPrice}
                             autoPost={p.autoPost}
+                            shippingWithinDays={p.shippingWithinDays}
                             imageUrl={p.imageUrl}
+                            imageUrls={p.imageUrls}
                             isReal={p.isReal}
                             onDelete={handleDeleteProduct}
                             onPost={fetchProducts}

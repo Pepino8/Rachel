@@ -38,13 +38,20 @@ export function getImageContentType(filePath) {
     return map[ext] || 'image/png';
 }
 
-export async function saveProductImage(productId, imageData) {
+export async function saveProductImage(productId, imageData, index = 0) {
     if (!imageData) return null;
+
+    // If it's already an external HTTP/HTTPS URL, return it directly
+    if (typeof imageData === 'string' && (imageData.startsWith('http://') || imageData.startsWith('https://'))) {
+        return imageData;
+    }
+
+    const suffix = index === 0 ? '' : `_${index}`;
 
     if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
         try {
             const result = await cloudinary.uploader.upload(imageData, {
-                public_id: `rachel-products/${productId}`,
+                public_id: `rachel-products/${productId}${suffix}`,
                 overwrite: true,
                 transformation: [
                     { width: 1000, height: 1000, crop: 'limit' },
@@ -62,21 +69,29 @@ export async function saveProductImage(productId, imageData) {
         const match = imageData.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
         if (match) {
             const ext = extensionFromMime(match[1]);
-            const filename = `${productId}${ext}`;
+            const filename = `${productId}${suffix}${ext}`;
             const filePath = path.join(uploadsDir, filename);
             fs.writeFileSync(filePath, Buffer.from(match[2], 'base64'));
             return filename;
         }
     }
 
-    // If it's already an external HTTP/HTTPS URL, return it directly
-    if (typeof imageData === 'string' && (imageData.startsWith('http://') || imageData.startsWith('https://'))) {
-        return imageData;
-    }
-
     return null;
 }
 
+export async function saveProductImages(productId, images = []) {
+    if (!Array.isArray(images) || images.length === 0) {
+        return [];
+    }
+    const saved = [];
+    for (let i = 0; i < images.length; i++) {
+        const url = await saveProductImage(productId, images[i], i);
+        if (url) {
+            saved.push(url);
+        }
+    }
+    return saved;
+}
 
 export function getProductImageFilePath(imagePath) {
     if (!imagePath) return null;
@@ -85,45 +100,72 @@ export function getProductImageFilePath(imagePath) {
 }
 
 export function deleteProductImage(imagePath) {
-    const fullPath = getProductImageFilePath(imagePath);
-    if (fullPath) {
-        fs.unlinkSync(fullPath);
+    if (!imagePath) return;
+    const paths = Array.isArray(imagePath) ? imagePath : [imagePath];
+    for (const p of paths) {
+        const fullPath = getProductImageFilePath(p);
+        if (fullPath) {
+            try {
+                fs.unlinkSync(fullPath);
+            } catch (err) {
+                console.warn('Failed to delete local product image:', err.message);
+            }
+        }
     }
 }
 
-export async function getListingImage(productId) {
+export async function getListingImages(productId) {
     if (productId) {
-        const { data: product } = await db.from('products').select('image_path').eq('id', productId).maybeSingle();
-        if (product?.image_path) {
-            if (product.image_path.startsWith('http://') || product.image_path.startsWith('https://')) {
+        const { data: product } = await db
+            .from('products')
+            .select('image_path, image_paths')
+            .eq('id', productId)
+            .maybeSingle();
+
+        const paths = Array.isArray(product?.image_paths) && product.image_paths.length > 0
+            ? product.image_paths
+            : (product?.image_path ? [product.image_path] : []);
+
+        const results = [];
+        for (const p of paths) {
+            if (p.startsWith('http://') || p.startsWith('https://')) {
                 try {
-                    const response = await axios.get(product.image_path, { responseType: 'arraybuffer' });
-                    return {
+                    const response = await axios.get(p, { responseType: 'arraybuffer' });
+                    results.push({
                         buffer: Buffer.from(response.data),
                         contentType: response.headers['content-type'] || 'image/png'
-                    };
+                    });
                 } catch (err) {
-                    console.error('Failed to fetch product image from Cloudinary:', err.message);
+                    console.error('Failed to fetch product image from URL:', err.message);
                 }
             } else {
-                const filePath = getProductImageFilePath(product.image_path);
+                const filePath = getProductImageFilePath(p);
                 if (filePath) {
-                    return {
+                    results.push({
                         buffer: fs.readFileSync(filePath),
                         contentType: getImageContentType(filePath)
-                    };
+                    });
                 }
             }
+        }
+
+        if (results.length > 0) {
+            return results;
         }
     }
 
     const fallbackPath = path.resolve(__dirname, '../public/joeswag.png');
     if (fs.existsSync(fallbackPath)) {
-        return { buffer: fs.readFileSync(fallbackPath), contentType: 'image/png' };
+        return [{ buffer: fs.readFileSync(fallbackPath), contentType: 'image/png' }];
     }
 
-    return {
+    return [{
         buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'),
         contentType: 'image/png'
-    };
+    }];
+}
+
+export async function getListingImage(productId) {
+    const list = await getListingImages(productId);
+    return list[0];
 }

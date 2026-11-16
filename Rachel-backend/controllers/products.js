@@ -1,5 +1,5 @@
 import db from '../config/db.js';
-import { saveProductImage, deleteProductImage, getProductImageFilePath, getImageContentType } from '../services/image.js';
+import { saveProductImage, saveProductImages, deleteProductImage, getProductImageFilePath, getImageContentType } from '../services/image.js';
 import crypto from 'crypto';
 import axios from 'axios';
 import { getAuthHeaders, GAMEFLIP_API_BASE } from '../services/gameflip.js';
@@ -30,9 +30,17 @@ export async function getProducts(req, res) {
 export async function saveProduct(req, res) {
     try {
         const user = req.user;
-        const { id, name, description, price, category, auto_post, image, game, game_mode, game_category } = req.body;
+        const { id, name, description, price, category, auto_post, image, images, game, game_mode, game_category, shipping_within_days } = req.body;
 
-        const imagePath = await saveProductImage(id, image);
+        let imagePath = null;
+        let imagePaths = [];
+        if (Array.isArray(images) && images.length > 0) {
+            imagePaths = await saveProductImages(id, images);
+            imagePath = imagePaths[0] || null;
+        } else if (image) {
+            imagePath = await saveProductImage(id, image, 0);
+            imagePaths = [imagePath];
+        }
 
         let finalDescription = (description || '').trim();
         if (game) {
@@ -47,7 +55,11 @@ export async function saveProduct(req, res) {
             }
         }
 
-        const { error } = await db.from('products').upsert({
+        const deliveryDays = Number(shipping_within_days) >= 1 && Number(shipping_within_days) <= 3
+            ? parseInt(shipping_within_days, 10)
+            : 1;
+
+        const productData = {
             id,
             user_id: user.id,
             name,
@@ -56,15 +68,32 @@ export async function saveProduct(req, res) {
             category,
             auto_post: auto_post ? 1 : 0,
             image_path: imagePath,
+            image_paths: imagePaths,
+            shipping_within_days: deliveryDays,
             updated_at: new Date().toISOString()
-        });
+        };
+
+        let { error } = await db.from('products').upsert(productData);
+
+        if (error && error.message && (error.message.includes('shipping_within_days') || error.message.includes('image_paths'))) {
+            console.warn('⚠️ Column not found in Supabase. Saving without newer fields temporarily:', error.message);
+            if (error.message.includes('shipping_within_days')) delete productData.shipping_within_days;
+            if (error.message.includes('image_paths')) delete productData.image_paths;
+            const retry = await db.from('products').upsert(productData);
+            error = retry.error;
+        }
 
         if (error) {
             console.error('DB save product error:', error.message);
             return res.status(500).json({ error: 'Failed to save product' });
         }
 
-        res.json({ success: true, image_path: imagePath });
+        res.json({
+            success: true,
+            image_path: imagePath,
+            image_paths: imagePaths,
+            shipping_within_days: deliveryDays
+        });
     } catch (error) {
         console.error('DB save product error:', error.message);
         res.status(500).json({ error: 'Failed to save product' });
@@ -106,14 +135,14 @@ export async function deleteProduct(req, res) {
         const user = req.user;
         const { id } = req.params;
 
-        let query = db.from('products').select('image_path').eq('id', id);
+        let query = db.from('products').select('image_path, image_paths').eq('id', id);
         if (user.id !== 'admin') {
             query = query.eq('user_id', user.id);
         }
         const { data: product } = await query.maybeSingle();
 
         if (product) {
-            deleteProductImage(product.image_path);
+            deleteProductImage(product.image_paths || product.image_path);
             await db.from('listings').delete().eq('product_id', id);
 
             let deleteQuery = db.from('products').delete().eq('id', id);
@@ -134,7 +163,7 @@ export async function updateProduct(req, res) {
     try {
         const user = req.user;
         const { id } = req.params;
-        const { name, description, price, category, auto_post, image } = req.body;
+        const { name, description, price, category, auto_post, image, images, shipping_within_days } = req.body;
 
         let checkQuery = db.from('products').select('*').eq('id', id);
         if (user.id !== 'admin') {
@@ -147,10 +176,20 @@ export async function updateProduct(req, res) {
         }
 
         let imagePath = existing.image_path;
-        if (image) {
-            deleteProductImage(existing.image_path);
-            imagePath = await saveProductImage(id, image);
+        let imagePaths = existing.image_paths || (existing.image_path ? [existing.image_path] : []);
+
+        if (Array.isArray(images) && images.length > 0) {
+            imagePaths = await saveProductImages(id, images);
+            imagePath = imagePaths[0] || null;
+        } else if (image) {
+            deleteProductImage(existing.image_paths || existing.image_path);
+            imagePath = await saveProductImage(id, image, 0);
+            imagePaths = [imagePath];
         }
+
+        const deliveryDays = shipping_within_days !== undefined
+            ? (Number(shipping_within_days) >= 1 && Number(shipping_within_days) <= 3 ? parseInt(shipping_within_days, 10) : 1)
+            : (existing.shipping_within_days || 1);
 
         const updates = {
             name: name ?? existing.name,
@@ -159,6 +198,8 @@ export async function updateProduct(req, res) {
             category: category ?? existing.category,
             auto_post: auto_post !== undefined ? (auto_post ? 1 : 0) : existing.auto_post,
             image_path: imagePath,
+            image_paths: imagePaths,
+            shipping_within_days: deliveryDays,
             updated_at: new Date().toISOString()
         };
 
@@ -166,14 +207,31 @@ export async function updateProduct(req, res) {
         if (user.id !== 'admin') {
             updateQuery = updateQuery.eq('user_id', user.id);
         }
-        const { error: updateErr } = await updateQuery;
+        let { error: updateErr } = await updateQuery;
+
+        if (updateErr && updateErr.message && (updateErr.message.includes('image_paths') || updateErr.message.includes('shipping_within_days'))) {
+            console.warn('⚠️ Column not found in Supabase. Updating without newer fields temporarily:', updateErr.message);
+            if (updateErr.message.includes('image_paths')) delete updates.image_paths;
+            if (updateErr.message.includes('shipping_within_days')) delete updates.shipping_within_days;
+            let retryQuery = db.from('products').update(updates).eq('id', id);
+            if (user.id !== 'admin') {
+                retryQuery = retryQuery.eq('user_id', user.id);
+            }
+            const retryRes = await retryQuery;
+            updateErr = retryRes.error;
+        }
 
         if (updateErr) {
             console.error('DB update product error:', updateErr.message);
             return res.status(500).json({ error: 'Failed to update product' });
         }
 
-        res.json({ success: true, image_path: imagePath });
+        res.json({
+            success: true,
+            image_path: imagePath,
+            image_paths: imagePaths,
+            shipping_within_days: deliveryDays
+        });
     } catch (error) {
         console.error('DB update product error:', error.message);
         res.status(500).json({ error: 'Failed to update product' });
@@ -256,42 +314,46 @@ export async function importProduct(req, res) {
             category = 'giftcard';
         }
 
-        // Get cover photo or fallback
+        // Download all photos from Gameflip listing
+        const photoEntries = Object.entries(gfListing.photo || {});
         const coverPhotoId = gfListing.cover_photo;
-        let imageUrl = null;
-        if (coverPhotoId && gfListing.photo && gfListing.photo[coverPhotoId]) {
-            imageUrl = gfListing.photo[coverPhotoId].view_url;
-        } else if (gfListing.photo && Object.keys(gfListing.photo).length > 0) {
-            const firstPhotoId = Object.keys(gfListing.photo)[0];
-            imageUrl = gfListing.photo[firstPhotoId].view_url;
+        if (coverPhotoId) {
+            photoEntries.sort(([idA], [idB]) => (idA === coverPhotoId ? -1 : idB === coverPhotoId ? 1 : 0));
         }
 
-        // Download image to base64
-        let imageBase64 = null;
-        if (imageUrl) {
-            try {
-                const imageRes = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-                const contentType = imageRes.headers['content-type'] || 'image/jpeg';
-                const buffer = Buffer.from(imageRes.data);
-                imageBase64 = `data:${contentType};base64,${buffer.toString('base64')}`;
-            } catch (imgError) {
-                console.error('Error downloading cover photo, passing direct URL to Cloudinary instead:', imgError.message);
-                imageBase64 = imageUrl;
+        const imagesToSave = [];
+        for (const [pId, pData] of photoEntries) {
+            if (pData?.view_url) {
+                try {
+                    const imageRes = await axios.get(pData.view_url, { responseType: 'arraybuffer' });
+                    const contentType = imageRes.headers['content-type'] || 'image/jpeg';
+                    const buffer = Buffer.from(imageRes.data);
+                    imagesToSave.push(`data:${contentType};base64,${buffer.toString('base64')}`);
+                } catch (imgError) {
+                    console.error('Error downloading listing photo, passing direct URL:', imgError.message);
+                    imagesToSave.push(pData.view_url);
+                }
             }
         }
 
-        if (!imageBase64) {
-            imageBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+        if (imagesToSave.length === 0) {
+            imagesToSave.push('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=');
+        }
+
+        let shippingWithinDays = parseInt(gfListing.shipping_within_days, 10);
+        if (isNaN(shippingWithinDays) || shippingWithinDays < 1 || shippingWithinDays > 3) {
+            shippingWithinDays = 1;
         }
 
         // Create new product ID
         const productId = 'prod_' + crypto.randomUUID();
 
-        // Save image to Cloudinary and get URL
-        const imagePath = await saveProductImage(productId, imageBase64);
+        // Save images to Cloudinary and get URLs
+        const savedImagePaths = await saveProductImages(productId, imagesToSave);
+        const primaryImagePath = savedImagePaths[0] || null;
 
         // Save to Supabase products table
-        const { error: insertErr } = await db.from('products').insert({
+        const productPayload = {
             id: productId,
             user_id: user.id,
             name: gfListing.name || 'Imported Gameflip Product',
@@ -299,9 +361,21 @@ export async function importProduct(req, res) {
             price: (gfListing.price || 0) / 100,
             category,
             auto_post: 1,
-            image_path: imagePath,
+            image_path: primaryImagePath,
+            image_paths: savedImagePaths,
+            shipping_within_days: shippingWithinDays,
             updated_at: new Date().toISOString()
-        });
+        };
+
+        let { error: insertErr } = await db.from('products').insert(productPayload);
+
+        if (insertErr && insertErr.message && (insertErr.message.includes('image_paths') || insertErr.message.includes('shipping_within_days'))) {
+            console.warn('⚠️ Column not found in Supabase. Inserting without newer fields temporarily:', insertErr.message);
+            if (insertErr.message.includes('image_paths')) delete productPayload.image_paths;
+            if (insertErr.message.includes('shipping_within_days')) delete productPayload.shipping_within_days;
+            const retry = await db.from('products').insert(productPayload);
+            insertErr = retry.error;
+        }
 
         if (insertErr) {
             console.error('importProduct DB insert error:', insertErr.message);
@@ -317,7 +391,9 @@ export async function importProduct(req, res) {
                 price: (gfListing.price || 0) / 100,
                 category,
                 auto_post: 1,
-                image_path: imagePath
+                image_path: primaryImagePath,
+                image_paths: savedImagePaths,
+                shipping_within_days: shippingWithinDays
             }
         });
     } catch (error) {

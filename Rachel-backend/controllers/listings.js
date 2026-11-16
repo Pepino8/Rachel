@@ -1,7 +1,7 @@
 import axios from 'axios';
 import db from '../config/db.js';
 import { GAMEFLIP_API_BASE, getAuthHeaders, getOwnerId, deleteListingSafely } from '../services/gameflip.js';
-import { getListingImage } from '../services/image.js';
+import { getListingImage, getListingImages } from '../services/image.js';
 import { purgeUserStaleListings } from '../services/autoPurge.js';
 
 // Helpers to log bot activity in Supabase
@@ -81,47 +81,100 @@ export async function createListing(req, res) {
         const listingId = listing.id;
         console.log(`Draft created with ID: ${listingId}. Requesting cover and carousel photo upload URLs...`);
 
-        const photoResponse1 = await axios.post(`${GAMEFLIP_API_BASE}/listing/${listingId}/photo`, {}, {
-            headers: getAuthHeaders(user)
-        });
-        const uploadUrl1 = photoResponse1.data.data.upload_url;
-        const photoId1 = photoResponse1.data.data.id;
+        const listingImages = await getListingImages(product_id);
+        console.log(`Found ${listingImages.length} image(s) for product ${product_id}`);
 
-        const photoResponse2 = await axios.post(`${GAMEFLIP_API_BASE}/listing/${listingId}/photo`, {}, {
-            headers: getAuthHeaders(user)
-        });
-        const uploadUrl2 = photoResponse2.data.data.upload_url;
-        const photoId2 = photoResponse2.data.data.id;
+        if (listingImages.length > 1) {
+            // Upload multiple photos (up to 4 photos) to Gameflip
+            const patchPhotoPayload = [];
+            for (let i = 0; i < Math.min(listingImages.length, 4); i++) {
+                const img = listingImages[i];
+                if (img.buffer.length > 500000) {
+                    console.warn(`Image ${i} too heavy (${img.buffer.length} bytes > 500000 allowed), skipping`);
+                    continue;
+                }
 
-        const { buffer: listingImageBuffer, contentType: listingImageType } = await getListingImage(product_id);
+                const photoResponse = await axios.post(`${GAMEFLIP_API_BASE}/listing/${listingId}/photo`, {}, {
+                    headers: getAuthHeaders(user)
+                });
+                const uploadUrl = photoResponse.data.data.upload_url;
+                const photoId = photoResponse.data.data.id;
 
-        console.log(`Uploading product image to Gameflip S3 (${listingImageType})...`);
-        if (listingImageBuffer.length > 500000) {
-            throw new Error(`Image too heavy: ${listingImageBuffer.length} bytes > 500000 allowed by Gameflip`);
-        }
+                await axios.put(uploadUrl, img.buffer, {
+                    headers: { 'Content-Type': img.contentType }
+                });
 
-        await Promise.all([
-            axios.put(uploadUrl1, listingImageBuffer, {
-                headers: { 'Content-Type': listingImageType }
-            }),
-            axios.put(uploadUrl2, listingImageBuffer, {
-                headers: { 'Content-Type': listingImageType }
-            })
-        ]);
+                patchPhotoPayload.push({
+                    op: "replace",
+                    path: `/photo/${photoId}/status`,
+                    value: "active"
+                });
 
-        console.log(`Activating photo ID: ${photoId1} as cover_photo and photo ID: ${photoId2} as carousel order 0...`);
-        const patchPhotoPayload = [
-            { op: "replace", path: `/photo/${photoId1}/status`, value: "active" },
-            { op: "replace", path: "/cover_photo", value: photoId1 },
-            { op: "replace", path: `/photo/${photoId2}/status`, value: "active" },
-            { op: "replace", path: `/photo/${photoId2}/display_order`, value: 0 }
-        ];
-        await axios.patch(`${GAMEFLIP_API_BASE}/listing/${listingId}`, patchPhotoPayload, {
-            headers: {
-                ...getAuthHeaders(user),
-                'Content-Type': 'application/json-patch+json'
+                if (i === 0) {
+                    patchPhotoPayload.push({
+                        op: "replace",
+                        path: "/cover_photo",
+                        value: photoId
+                    });
+                }
+                patchPhotoPayload.push({
+                    op: "replace",
+                    path: `/photo/${photoId}/display_order`,
+                    value: i
+                });
             }
-        });
+
+            console.log(`Activating ${patchPhotoPayload.length / 2} photos on Gameflip listing...`);
+            await axios.patch(`${GAMEFLIP_API_BASE}/listing/${listingId}`, patchPhotoPayload, {
+                headers: {
+                    ...getAuthHeaders(user),
+                    'Content-Type': 'application/json-patch+json'
+                }
+            });
+        } else {
+            // Single image (standard fallback: 1 cover + 1 carousel order 0)
+            const photoResponse1 = await axios.post(`${GAMEFLIP_API_BASE}/listing/${listingId}/photo`, {}, {
+                headers: getAuthHeaders(user)
+            });
+            const uploadUrl1 = photoResponse1.data.data.upload_url;
+            const photoId1 = photoResponse1.data.data.id;
+
+            const photoResponse2 = await axios.post(`${GAMEFLIP_API_BASE}/listing/${listingId}/photo`, {}, {
+                headers: getAuthHeaders(user)
+            });
+            const uploadUrl2 = photoResponse2.data.data.upload_url;
+            const photoId2 = photoResponse2.data.data.id;
+
+            const { buffer: listingImageBuffer, contentType: listingImageType } = listingImages[0] || (await getListingImage(product_id));
+
+            console.log(`Uploading product image to Gameflip S3 (${listingImageType})...`);
+            if (listingImageBuffer.length > 500000) {
+                throw new Error(`Image too heavy: ${listingImageBuffer.length} bytes > 500000 allowed by Gameflip`);
+            }
+
+            await Promise.all([
+                axios.put(uploadUrl1, listingImageBuffer, {
+                    headers: { 'Content-Type': listingImageType }
+                }),
+                axios.put(uploadUrl2, listingImageBuffer, {
+                    headers: { 'Content-Type': listingImageType }
+                })
+            ]);
+
+            console.log(`Activating photo ID: ${photoId1} as cover_photo and photo ID: ${photoId2} as carousel order 0...`);
+            const patchPhotoPayload = [
+                { op: "replace", path: `/photo/${photoId1}/status`, value: "active" },
+                { op: "replace", path: "/cover_photo", value: photoId1 },
+                { op: "replace", path: `/photo/${photoId2}/status`, value: "active" },
+                { op: "replace", path: `/photo/${photoId2}/display_order`, value: 0 }
+            ];
+            await axios.patch(`${GAMEFLIP_API_BASE}/listing/${listingId}`, patchPhotoPayload, {
+                headers: {
+                    ...getAuthHeaders(user),
+                    'Content-Type': 'application/json-patch+json'
+                }
+            });
+        }
 
         console.log('Patching listing status to onsale...');
         const patchStatusPayload = [

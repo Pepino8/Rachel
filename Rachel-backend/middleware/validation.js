@@ -54,22 +54,29 @@ export const saveProductSchema = z.object({
     price: z.number().nonnegative('Price must be a number greater than or equal to zero'),
     category: z.string().min(1, 'Category is required'),
     auto_post: z.boolean().optional(),
-    image: z.string().min(1, 'Base64 image is required'),
+    image: z.string().optional(),
+    images: z.array(z.string()).max(4, 'Maximum of 4 images allowed').optional(),
     game: z.string().optional().nullable(),
     game_mode: z.string().optional().nullable(),
-    game_category: z.string().optional().nullable()
+    game_category: z.string().optional().nullable(),
+    shipping_within_days: z.coerce.number().int().min(1, 'Delivery time must be at least 1 day').max(3, 'Delivery time cannot exceed 3 days').optional()
+}).refine(data => Boolean(data.image || (Array.isArray(data.images) && data.images.length > 0)), {
+    message: 'At least one product image is required',
+    path: ['image']
 });
 
 export const updateProductSchema = z.object({
-    name: z.string().min(1).optional(),
+    name: z.string().min(1, 'Product name cannot be empty').optional(),
     description: z.string().optional().nullable(),
-    price: z.number().nonnegative().optional(),
+    price: z.number().nonnegative('Price must be a number greater than or equal to zero').optional(),
     category: z.string().optional(),
     auto_post: z.boolean().optional(),
     image: z.string().optional(),
+    images: z.array(z.string()).max(4, 'Maximum of 4 images allowed').optional(),
     game: z.string().optional().nullable(),
     game_mode: z.string().optional().nullable(),
-    game_category: z.string().optional().nullable()
+    game_category: z.string().optional().nullable(),
+    shipping_within_days: z.coerce.number().int().min(1, 'Delivery time must be at least 1 day').max(3, 'Delivery time cannot exceed 3 days').optional()
 });
 
 export const createListingSchema = z.object({
@@ -77,7 +84,8 @@ export const createListingSchema = z.object({
     description: z.string().optional().nullable(),
     price: z.union([z.string(), z.number()]),
     category: z.string().min(1, 'Category is required'),
-    product_id: z.string().min(1, 'Product ID is required')
+    product_id: z.string().min(1, 'Product ID is required'),
+    shipping_within_days: z.coerce.number().int().min(1, 'Delivery time must be at least 1 day').max(3, 'Delivery time cannot exceed 3 days').optional()
 });
 
 export const importProductSchema = z.object({

@@ -11,6 +11,8 @@ function ProductEditModal({ product, onClose, onSaved }) {
     const [price, setPrice] = useState(String(product.rawPrice ?? ''));
     const [autopost, setAutopost] = useState(product.autoPost ? 'yes' : 'no');
     const [category, setCategory] = useState(product.category || 'ingame-item');
+    const [shippingDays, setShippingDays] = useState(product.shippingWithinDays || product.shipping_within_days || 1);
+    const [imageItems, setImageItems] = useState([]);
     const [imageFile, setImageFile] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -20,6 +22,8 @@ function ProductEditModal({ product, onClose, onSaved }) {
         setPrice(String(product.rawPrice ?? ''));
         setAutopost(product.autoPost ? 'yes' : 'no');
         setCategory(product.category || 'ingame-item');
+        setShippingDays(product.shippingWithinDays || product.shipping_within_days || 1);
+        setImageItems([]);
         setImageFile(null);
     }, [product]);
 
@@ -40,10 +44,22 @@ function ProductEditModal({ product, onClose, onSaved }) {
                 description,
                 price: parseFloat(price),
                 category,
-                auto_post: autopost === 'yes'
+                auto_post: autopost === 'yes',
+                shipping_within_days: parseInt(shippingDays, 10) || 1
             };
 
-            if (imageFile) {
+            if (imageItems.length > 0) {
+                const finalImages = await Promise.all(
+                    imageItems.map(async (item) => {
+                        if (item.file) {
+                            return await fileToBase64(item.file);
+                        }
+                        return item.url || item.preview;
+                    })
+                );
+                payload.images = finalImages;
+                payload.image = finalImages[0];
+            } else if (imageFile) {
                 payload.image = await fileToBase64(imageFile);
             }
 
@@ -96,12 +112,12 @@ function ProductEditModal({ product, onClose, onSaved }) {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
-                            Product Image
-                        </label>
                         <ImageUploader
                             inputId={`edit-image-${product.id}`}
+                            maxImages={4}
+                            initialImages={product.imageUrls}
                             initialImageUrl={product.imageUrl}
+                            onImagesChange={setImageItems}
                             onImageSelect={setImageFile}
                         />
                     </div>
@@ -168,6 +184,22 @@ function ProductEditModal({ product, onClose, onSaved }) {
                             <option value="video-game-console">Video Game Console</option>
                             <option value="giftcard">Gift Card</option>
                             <option value="unknown">Unknown</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label htmlFor="edit-shipping" className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+                            Delivery Time
+                        </label>
+                        <select
+                            id="edit-shipping"
+                            value={shippingDays}
+                            onChange={(e) => setShippingDays(Number(e.target.value))}
+                            className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:border-emerald-500/50 rounded-lg text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200"
+                        >
+                            <option value={1}>1 Day</option>
+                            <option value={2}>2 Days</option>
+                            <option value={3}>3 Days</option>
                         </select>
                     </div>
                 </div>

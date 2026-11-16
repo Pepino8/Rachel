@@ -14,6 +14,8 @@ function CreateImport({ onProductCreated }) {
     const [price, setPrice] = useState('');
     const [autopost, setAutopost] = useState('yes');
     const [category, setCategory] = useState('ingame-item');
+    const [shippingDays, setShippingDays] = useState(1);
+    const [imageItems, setImageItems] = useState([]);
     const [imageFile, setImageFile] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -41,6 +43,8 @@ function CreateImport({ onProductCreated }) {
         setPrice('');
         setAutopost('yes');
         setCategory('ingame-item');
+        setShippingDays(1);
+        setImageItems([]);
         setImageFile(null);
         setGame('');
         setGameMode('Battle Royale');
@@ -51,8 +55,8 @@ function CreateImport({ onProductCreated }) {
     const handleCreate = async (e) => {
         e.preventDefault();
 
-        if (!imageFile) {
-            showToast('Please select a product image', 'warning');
+        if (imageItems.length === 0 && !imageFile) {
+            showToast('Please select at least one product image', 'warning');
             return;
         }
 
@@ -65,7 +69,8 @@ function CreateImport({ onProductCreated }) {
             autopost,
             game,
             gameMode,
-            gameCategory
+            gameCategory,
+            imageCount: imageItems.length
         });
 
         try {
@@ -74,7 +79,20 @@ function CreateImport({ onProductCreated }) {
                 ? window.crypto.randomUUID()
                 : 'prod_' + Math.random().toString(36).substring(2, 15);
 
-            const image = await fileToBase64(imageFile);
+            let base64Images = [];
+            if (imageItems.length > 0) {
+                base64Images = await Promise.all(
+                    imageItems.map(async (item) => {
+                        if (item.file) {
+                            return await fileToBase64(item.file);
+                        }
+                        return item.url || item.preview;
+                    })
+                );
+            } else if (imageFile) {
+                const single = await fileToBase64(imageFile);
+                base64Images = [single];
+            }
 
             // 1. Save product to local DB
             await axios.post(`${API_URL}/api/db/products`, {
@@ -84,7 +102,9 @@ function CreateImport({ onProductCreated }) {
                 price: parseFloat(price),
                 category: category,
                 auto_post: autopost === 'yes',
-                image,
+                shipping_within_days: parseInt(shippingDays, 10) || 1,
+                images: base64Images,
+                image: base64Images[0],
                 game: game || undefined,
                 game_mode: game === 'Fortnite' ? gameMode : undefined,
                 game_category: (game === 'Fortnite' && gameCategory) ? gameCategory : undefined
@@ -393,10 +413,7 @@ function CreateImport({ onProductCreated }) {
 
                             {/* Image Uploader */}
                             <div>
-                                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
-                                    Product Image
-                                </label>
-                                <ImageUploader key={create ? 'create-open' : 'create-closed'} onImageSelect={setImageFile} />
+                                <ImageUploader key={create ? 'create-open' : 'create-closed'} maxImages={4} onImagesChange={setImageItems} onImageSelect={setImageFile} />
                             </div>
 
                             {/* Game Selector (Gameflip Catalog) */}
@@ -720,6 +737,24 @@ function CreateImport({ onProductCreated }) {
                                     <option value="video-game-console">Video Game Console</option>
                                     <option value="giftcard">Gift Card</option>
                                     <option value="unknown">Unknown</option>
+                                </select>
+                            </div>
+
+                            {/* Delivery Time */}
+                            <div>
+                                <label htmlFor="shippingDays" className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+                                    Delivery Time
+                                </label>
+                                <select
+                                    id="shippingDays"
+                                    name="shippingDays"
+                                    value={shippingDays}
+                                    onChange={(e) => setShippingDays(Number(e.target.value))}
+                                    className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:border-emerald-500/50 rounded-lg text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200"
+                                >
+                                    <option value={1}>1 Day</option>
+                                    <option value={2}>2 Days</option>
+                                    <option value={3}>3 Days</option>
                                 </select>
                             </div>
                         </div>
