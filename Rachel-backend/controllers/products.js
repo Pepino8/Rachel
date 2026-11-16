@@ -30,7 +30,7 @@ export async function getProducts(req, res) {
 export async function saveProduct(req, res) {
     try {
         const user = req.user;
-        const { id, name, description, price, category, auto_post, image, game, game_mode, game_category } = req.body;
+        const { id, name, description, price, category, auto_post, image, game, game_mode, game_category, shipping_within_days } = req.body;
 
         const imagePath = await saveProductImage(id, image);
 
@@ -47,7 +47,11 @@ export async function saveProduct(req, res) {
             }
         }
 
-        const { error } = await db.from('products').upsert({
+        const deliveryDays = Number(shipping_within_days) >= 1 && Number(shipping_within_days) <= 3
+            ? parseInt(shipping_within_days, 10)
+            : 1;
+
+        const productData = {
             id,
             user_id: user.id,
             name,
@@ -56,15 +60,25 @@ export async function saveProduct(req, res) {
             category,
             auto_post: auto_post ? 1 : 0,
             image_path: imagePath,
+            shipping_within_days: deliveryDays,
             updated_at: new Date().toISOString()
-        });
+        };
+
+        let { error } = await db.from('products').upsert(productData);
+
+        if (error && error.message && error.message.includes('shipping_within_days')) {
+            console.warn('⚠️ Column shipping_within_days not found in Supabase. Saving without this field temporarily.');
+            delete productData.shipping_within_days;
+            const retry = await db.from('products').upsert(productData);
+            error = retry.error;
+        }
 
         if (error) {
             console.error('DB save product error:', error.message);
             return res.status(500).json({ error: 'Error al guardar producto' });
         }
 
-        res.json({ success: true, image_path: imagePath });
+        res.json({ success: true, image_path: imagePath, shipping_within_days: deliveryDays });
     } catch (error) {
         console.error('DB save product error:', error.message);
         res.status(500).json({ error: 'Error al guardar producto' });
@@ -134,7 +148,7 @@ export async function updateProduct(req, res) {
     try {
         const user = req.user;
         const { id } = req.params;
-        const { name, description, price, category, auto_post, image } = req.body;
+        const { name, description, price, category, auto_post, image, shipping_within_days } = req.body;
 
         let checkQuery = db.from('products').select('*').eq('id', id);
         if (user.id !== 'admin') {
@@ -152,6 +166,10 @@ export async function updateProduct(req, res) {
             imagePath = await saveProductImage(id, image);
         }
 
+        const deliveryDays = shipping_within_days !== undefined
+            ? (Number(shipping_within_days) >= 1 && Number(shipping_within_days) <= 3 ? parseInt(shipping_within_days, 10) : 1)
+            : (existing.shipping_within_days || 1);
+
         const updates = {
             name: name ?? existing.name,
             description: description ?? existing.description,
@@ -159,6 +177,7 @@ export async function updateProduct(req, res) {
             category: category ?? existing.category,
             auto_post: auto_post !== undefined ? (auto_post ? 1 : 0) : existing.auto_post,
             image_path: imagePath,
+            shipping_within_days: deliveryDays,
             updated_at: new Date().toISOString()
         };
 
@@ -166,14 +185,25 @@ export async function updateProduct(req, res) {
         if (user.id !== 'admin') {
             updateQuery = updateQuery.eq('user_id', user.id);
         }
-        const { error: updateErr } = await updateQuery;
+        let { error: updateErr } = await updateQuery;
+
+        if (updateErr && updateErr.message && updateErr.message.includes('shipping_within_days')) {
+            console.warn('⚠️ Column shipping_within_days not found in Supabase. Updating without this field temporarily.');
+            delete updates.shipping_within_days;
+            let retryQuery = db.from('products').update(updates).eq('id', id);
+            if (user.id !== 'admin') {
+                retryQuery = retryQuery.eq('user_id', user.id);
+            }
+            const retryRes = await retryQuery;
+            updateErr = retryRes.error;
+        }
 
         if (updateErr) {
             console.error('DB update product error:', updateErr.message);
             return res.status(500).json({ error: 'Error al actualizar producto' });
         }
 
-        res.json({ success: true, image_path: imagePath });
+        res.json({ success: true, image_path: imagePath, shipping_within_days: deliveryDays });
     } catch (error) {
         console.error('DB update product error:', error.message);
         res.status(500).json({ error: 'Error al actualizar producto' });
@@ -284,6 +314,11 @@ export async function importProduct(req, res) {
             imageBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
         }
 
+        let shippingWithinDays = parseInt(gfListing.shipping_within_days, 10);
+        if (isNaN(shippingWithinDays) || shippingWithinDays < 1 || shippingWithinDays > 3) {
+            shippingWithinDays = 1;
+        }
+
         // Create new product ID
         const productId = 'prod_' + crypto.randomUUID();
 
@@ -291,7 +326,7 @@ export async function importProduct(req, res) {
         const imagePath = await saveProductImage(productId, imageBase64);
 
         // Save to Supabase products table
-        const { error: insertErr } = await db.from('products').insert({
+        const productPayload = {
             id: productId,
             user_id: user.id,
             name: gfListing.name || 'Imported Gameflip Product',
@@ -300,8 +335,18 @@ export async function importProduct(req, res) {
             category,
             auto_post: 1,
             image_path: imagePath,
+            shipping_within_days: shippingWithinDays,
             updated_at: new Date().toISOString()
-        });
+        };
+
+        let { error: insertErr } = await db.from('products').insert(productPayload);
+
+        if (insertErr && insertErr.message && insertErr.message.includes('shipping_within_days')) {
+            console.warn('⚠️ Column shipping_within_days not found in Supabase. Inserting without this field temporarily.');
+            delete productPayload.shipping_within_days;
+            const retry = await db.from('products').insert(productPayload);
+            insertErr = retry.error;
+        }
 
         if (insertErr) {
             console.error('importProduct DB insert error:', insertErr.message);
@@ -317,7 +362,8 @@ export async function importProduct(req, res) {
                 price: (gfListing.price || 0) / 100,
                 category,
                 auto_post: 1,
-                image_path: imagePath
+                image_path: imagePath,
+                shipping_within_days: shippingWithinDays
             }
         });
     } catch (error) {

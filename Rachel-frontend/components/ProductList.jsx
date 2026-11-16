@@ -25,6 +25,7 @@ function ProductList({ refreshTrigger }) {
                     price: `$${parseFloat(item.price || 0).toFixed(2)}`,
                     rawPrice: item.price,
                     autoPost: item.auto_post === 1 || item.auto_post === true,
+                    shippingWithinDays: item.shipping_within_days || 1,
                     imageUrl: item.image_path 
                         ? (item.image_path.startsWith('http') ? item.image_path : `${API_URL}/api/db/products/${item.id}/image`)
                         : null,
@@ -91,6 +92,7 @@ function ProductList({ refreshTrigger }) {
                             price={p.price}
                             rawPrice={p.rawPrice}
                             autoPost={p.autoPost}
+                            shippingWithinDays={p.shippingWithinDays}
                             imageUrl={p.imageUrl}
                             isReal={p.isReal}
                             onDelete={handleDeleteProduct}

@@ -5,7 +5,7 @@ import Switch from '@mui/material/Switch';
 import ProductEditModal from './ProductEditModal';
 import { useToast } from '../src/useToast';
 
-function Product({ id, product, description, category, price, rawPrice, autoPost, imageUrl, isReal, onDelete, onPost }) {
+function Product({ id, product, description, category, price, rawPrice, autoPost, shippingWithinDays = 1, imageUrl, isReal, onDelete, onPost }) {
     const { showToast } = useToast();
     const label = { inputProps: { 'aria-label': 'Switch demo' } };
     const [isDeleting, setIsDeleting] = useState(false);
@@ -101,7 +101,8 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
                 description: description || 'No description provided.',
                 price: rawPrice || cleanPrice,
                 category: category,
-                product_id: id
+                product_id: id,
+                shipping_within_days: shippingWithinDays || 1
             });
 
             console.log(`Successfully posted product ${id} to Gameflip:`, response.data);
@@ -165,6 +166,10 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
                             <span className="text-xs text-emerald-400 font-medium">{price}</span>
                             <span className="text-zinc-700">•</span>
                             {getCategoryBadge(category)}
+                            <span className="text-zinc-700">•</span>
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20" title={`Delivery time: ${shippingWithinDays || 1} day${(shippingWithinDays || 1) > 1 ? 's' : ''}`}>
+                                ⏱️ {shippingWithinDays || 1}d
+                            </span>
                         </div>
                     </div>
                 </button>
@@ -225,6 +230,7 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
                         category,
                         rawPrice,
                         autoPost: autoPostState,
+                        shippingWithinDays: shippingWithinDays || 1,
                         imageUrl: imageUrl ? `${imageUrl}?t=${Date.now()}` : null
                     }}
                     onClose={() => setShowEditModal(false)}

@@ -96,7 +96,8 @@ function PostListings() {
                         description: prod.description || "Automatically posted by Rachel dashboard agent.",
                         price: prod.price,
                         category: prod.category || "ingame-item",
-                        product_id: prod.id
+                        product_id: prod.id,
+                        shipping_within_days: prod.shipping_within_days || 1
                     });
                     setPostedCount(prev => prev + 1);
                 } catch (err) {

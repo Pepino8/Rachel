@@ -57,7 +57,8 @@ export const saveProductSchema = z.object({
     image: z.string().min(1, 'La imagen en base64 es requerida'),
     game: z.string().optional().nullable(),
     game_mode: z.string().optional().nullable(),
-    game_category: z.string().optional().nullable()
+    game_category: z.string().optional().nullable(),
+    shipping_within_days: z.coerce.number().int().min(1, 'Delivery time must be at least 1 day').max(3, 'Delivery time cannot exceed 3 days').optional()
 });
 
 export const updateProductSchema = z.object({
@@ -69,7 +70,8 @@ export const updateProductSchema = z.object({
     image: z.string().optional(),
     game: z.string().optional().nullable(),
     game_mode: z.string().optional().nullable(),
-    game_category: z.string().optional().nullable()
+    game_category: z.string().optional().nullable(),
+    shipping_within_days: z.coerce.number().int().min(1, 'Delivery time must be at least 1 day').max(3, 'Delivery time cannot exceed 3 days').optional()
 });
 
 export const createListingSchema = z.object({
@@ -77,7 +79,8 @@ export const createListingSchema = z.object({
     description: z.string().optional().nullable(),
     price: z.union([z.string(), z.number()]),
     category: z.string().min(1, 'La categoría es requerida'),
-    product_id: z.string().min(1, 'El ID de producto es requerido')
+    product_id: z.string().min(1, 'El ID de producto es requerido'),
+    shipping_within_days: z.coerce.number().int().min(1).max(3).optional()
 });
 
 export const importProductSchema = z.object({

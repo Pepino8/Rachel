@@ -14,6 +14,7 @@ function CreateImport({ onProductCreated }) {
     const [price, setPrice] = useState('');
     const [autopost, setAutopost] = useState('yes');
     const [category, setCategory] = useState('ingame-item');
+    const [shippingDays, setShippingDays] = useState(1);
     const [imageFile, setImageFile] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -41,6 +42,7 @@ function CreateImport({ onProductCreated }) {
         setPrice('');
         setAutopost('yes');
         setCategory('ingame-item');
+        setShippingDays(1);
         setImageFile(null);
         setGame('');
         setGameMode('Battle Royale');
@@ -63,6 +65,7 @@ function CreateImport({ onProductCreated }) {
             price,
             category,
             autopost,
+            shippingDays,
             game,
             gameMode,
             gameCategory
@@ -84,6 +87,7 @@ function CreateImport({ onProductCreated }) {
                 price: parseFloat(price),
                 category: category,
                 auto_post: autopost === 'yes',
+                shipping_within_days: parseInt(shippingDays, 10) || 1,
                 image,
                 game: game || undefined,
                 game_mode: game === 'Fortnite' ? gameMode : undefined,
@@ -721,6 +725,39 @@ function CreateImport({ onProductCreated }) {
                                     <option value="giftcard">Gift Card</option>
                                     <option value="unknown">Unknown</option>
                                 </select>
+                            </div>
+
+                            {/* Delivery Time (1 - 3 days max) */}
+                            <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                                        Delivery Time (Days)
+                                    </label>
+                                    <span className="text-[11px] text-emerald-400 font-mono">
+                                        {shippingDays === 1 ? '1 day (⚡ Fast)' : `${shippingDays} days max`}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { days: 1, label: '1 Day', sub: '⚡ Immediate' },
+                                        { days: 2, label: '2 Days', sub: '⏱️ Standard' },
+                                        { days: 3, label: '3 Days', sub: '⏳ Maximum' }
+                                    ].map(({ days, label, sub }) => (
+                                        <button
+                                            key={days}
+                                            type="button"
+                                            onClick={() => setShippingDays(days)}
+                                            className={`p-2 rounded-lg border text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center ${
+                                                shippingDays === days
+                                                    ? 'bg-emerald-500/15 border-emerald-500/80 ring-2 ring-emerald-500/20 text-white shadow-md shadow-emerald-500/10'
+                                                    : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200'
+                                            }`}
+                                        >
+                                            <span className="text-xs font-bold leading-tight">{label}</span>
+                                            <span className="text-[10px] text-zinc-500 mt-0.5">{sub}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
