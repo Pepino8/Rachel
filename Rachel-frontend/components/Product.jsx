@@ -101,7 +101,8 @@ function Product({ id, product, description, category, price, rawPrice, autoPost
                 description: description || 'No description provided.',
                 price: rawPrice || cleanPrice,
                 category: category,
-                product_id: id
+                product_id: id,
+                shipping_within_days: shippingWithinDays || 1
             });
 
             console.log(`Successfully posted product ${id} to Gameflip:`, response.data);

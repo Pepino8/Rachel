@@ -67,6 +67,7 @@ function CreateImport({ onProductCreated }) {
             price,
             category,
             autopost,
+            shippingDays,
             game,
             gameMode,
             gameCategory,
@@ -740,22 +741,37 @@ function CreateImport({ onProductCreated }) {
                                 </select>
                             </div>
 
-                            {/* Delivery Time */}
+                            {/* Delivery Time (1 - 3 days max) */}
                             <div>
-                                <label htmlFor="shippingDays" className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
-                                    Delivery Time
-                                </label>
-                                <select
-                                    id="shippingDays"
-                                    name="shippingDays"
-                                    value={shippingDays}
-                                    onChange={(e) => setShippingDays(Number(e.target.value))}
-                                    className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 focus:border-emerald-500/50 rounded-lg text-sm text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all duration-200"
-                                >
-                                    <option value={1}>1 Day</option>
-                                    <option value={2}>2 Days</option>
-                                    <option value={3}>3 Days</option>
-                                </select>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                                        Delivery Time (Days)
+                                    </label>
+                                    <span className="text-[11px] text-emerald-400 font-mono">
+                                        {shippingDays === 1 ? '1 day (⚡ Fast)' : `${shippingDays} days max`}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[
+                                        { days: 1, label: '1 Day', sub: '⚡ Immediate' },
+                                        { days: 2, label: '2 Days', sub: '⏱️ Standard' },
+                                        { days: 3, label: '3 Days', sub: '⏳ Maximum' }
+                                    ].map(({ days, label, sub }) => (
+                                        <button
+                                            key={days}
+                                            type="button"
+                                            onClick={() => setShippingDays(days)}
+                                            className={`p-2 rounded-lg border text-center transition-all duration-200 cursor-pointer flex flex-col items-center justify-center ${
+                                                shippingDays === days
+                                                    ? 'bg-emerald-500/15 border-emerald-500/80 ring-2 ring-emerald-500/20 text-white shadow-md shadow-emerald-500/10'
+                                                    : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700 text-zinc-400 hover:text-zinc-200'
+                                            }`}
+                                        >
+                                            <span className="text-xs font-bold leading-tight">{label}</span>
+                                            <span className="text-[10px] text-zinc-500 mt-0.5">{sub}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 

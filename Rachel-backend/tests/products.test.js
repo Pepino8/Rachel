@@ -51,7 +51,6 @@ describe('Products & Listings Validation - Delivery Time (shipping_within_days)'
             const parsed = saveProductSchema.parse(validBaseProduct);
             expect(parsed.shipping_within_days).toBeUndefined();
         });
-
         it('should accept multiple images in images array', () => {
             const parsed = saveProductSchema.parse({
                 id: 'prod_multi',
@@ -97,6 +96,7 @@ describe('Products & Listings Validation - Delivery Time (shipping_within_days)'
             });
             expect(parsed.images).toHaveLength(2);
         });
+
         it('should accept shipping_within_days from 1 to 3', () => {
             expect(() => updateProductSchema.parse({ shipping_within_days: 1 })).not.toThrow();
             expect(() => updateProductSchema.parse({ shipping_within_days: 2 })).not.toThrow();
